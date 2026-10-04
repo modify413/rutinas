@@ -461,6 +461,7 @@ function renderLibrary() {
 async function libUploadFile() {
   const f = document.getElementById('lib-file').files[0] || null;
   if (!f) return null;
+  if (f.size > 25 * 1024 * 1024) throw new Error(`"${f.name}" supera los 25 MB. Recórtalo o comprímelo antes de subirlo.`);
   popup(`Subiendo ${f.name}…`);
   const fd = new FormData();
   fd.append('gif', f);
@@ -918,6 +919,10 @@ document.getElementById('btn-save').addEventListener('click', () => withBtn(docu
     .filter(it => it._gifFile && it.querySelector('[data-type]').value === 'exercise');
   if (pending.length) popup(`Subiendo ${pending.length} GIF(s)…`);
   for (const it of pending) {
+    if (it._gifFile.size > 25 * 1024 * 1024) {
+      popup(`❌ "${it._gifFile.name}" supera los 25 MB. Recórtalo o comprímelo antes de subirlo.`, false);
+      return;
+    }
     const fd = new FormData();
     fd.append('gif', it._gifFile);
     try {

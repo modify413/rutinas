@@ -9,6 +9,9 @@ ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/do
 RUN chmod +x /usr/local/bin/install-php-extensions \
     && install-php-extensions pdo_sqlite pdo_pgsql zip bcmath opcache
 
+# Permitir videos cortos (el default de PHP es 2M/8M y rechaza todo)
+RUN printf 'upload_max_filesize = 32M\npost_max_size = 32M\nmax_execution_time = 120\nmax_input_time = 120\n' > /usr/local/etc/php/conf.d/uploads.ini
+
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app

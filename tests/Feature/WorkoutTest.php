@@ -238,9 +238,10 @@ class WorkoutTest extends TestCase
         $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
 
         // Archivo demasiado grande -> 422 sin tocar el bucket
-        $this->postJson('/uploads/gif', [
+        $res = $this->postJson('/uploads/gif', [
             'gif' => \Illuminate\Http\UploadedFile::fake()->create('big.mp4', 26000, 'video/mp4'),
         ])->assertStatus(422);
+        $this->assertStringContainsString('25 MB', $res->json('message', json_encode($res->json())));
 
         // Tipo no permitido -> 422
         $this->postJson('/uploads/gif', [

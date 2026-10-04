@@ -40,12 +40,22 @@ class GifUploadController extends Controller
 
     public function store(Request $request)
     {
+        // Si PHP rechazó el archivo por su propio límite, llega vacío:
+        // avisarlo claro en vez del genérico "campo obligatorio".
+        if (! $request->hasFile('gif') && $request->server('CONTENT_LENGTH') > 0) {
+            return response()->json(['message' => 'El archivo es demasiado grande para el servidor (máx 25 MB).'], 422);
+        }
+
         $request->validate([
             'gif' => [
                 'required', 'file', 'max:'.static::MAX_KB,
                 'mimetypes:image/gif,image/jpeg,image/png,image/webp,video/mp4,video/webm',
             ],
-        ], [], ['gif' => 'archivo']);
+        ], [
+            'gif.required' => 'Elige un archivo primero.',
+            'gif.max' => 'El archivo supera los 25 MB.',
+            'gif.mimetypes' => 'Formato no permitido. Usa GIF, JPG, PNG, WEBP, MP4 o WEBM.',
+        ], ['gif' => 'archivo']);
 
         $file = $request->file('gif');
         $key = 'media-'.Str::uuid().'.'.$file->getClientOriginalExtension();
