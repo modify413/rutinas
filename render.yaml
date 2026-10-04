@@ -3,11 +3,7 @@ services:
     name: rutinas-app
     runtime: docker
     dockerfilePath: ./Dockerfile
-    plan: starter # el disco persistente requiere plan de pago
-    disk:
-      name: sqlite-data
-      mountPath: /data
-      sizeGB: 1
+    plan: free # Postgres externo (Neon/Supabase), sin disco
     envVars:
       - key: APP_ENV
         value: production
@@ -16,9 +12,17 @@ services:
       - key: APP_NAME
         value: Rutinas
       - key: DB_CONNECTION
-        value: sqlite
+        value: pgsql
+      - key: DB_HOST
+        sync: false # ej: ep-xxxx.neon.tech
+      - key: DB_PORT
+        value: 5432
       - key: DB_DATABASE
-        value: /data/database.sqlite
+        sync: false # ej: neondb
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
       - key: SESSION_DRIVER
         value: database
       - key: CACHE_STORE
