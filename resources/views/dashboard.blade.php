@@ -149,8 +149,10 @@
     </div>
     <label for="lib-gif">GIF (URL directa .gif, opcional)</label>
     <input id="lib-gif" placeholder="https://...gif" maxlength="2048">
-    <div style="margin-top:8px">
+    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn small" id="lib-save" type="button">💾 Guardar en biblioteca</button>
+      <button class="btn small" id="lib-update" type="button" style="display:none">Actualizar</button>
+      <button class="btn small secondary" id="lib-clear" type="button" style="display:none">Limpiar</button>
     </div>
     <hr style="border-color:var(--line);margin:14px 0">
     <div id="lib-list" class="lib-grid"></div>
@@ -185,23 +187,6 @@
       </div>
     </div>
     <p class="muted" id="libm-status" style="margin-bottom:0"></p>
-  </div>
-</div>
-
-{{-- MODAL: editar ejercicio de la biblioteca (solo se guarda con OK) --}}
-<div class="modal-scrim" id="lib-edit-modal">
-  <div class="modal card">
-    <h3 style="margin-top:0">✏️ Editar ejercicio</h3>
-    <label for="libe-name">Nombre</label>
-    <input id="libe-name" maxlength="255">
-    <label for="libe-dur">Tiempo (s o m:ss)</label>
-    <input id="libe-dur" placeholder="0:30">
-    <label for="libe-gif">GIF (URL directa .gif, opcional)</label>
-    <input id="libe-gif" maxlength="2048" placeholder="https://...gif">
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap">
-      <button class="btn small secondary" id="libe-cancel" type="button">Cancelar</button>
-      <button class="btn small" id="libe-ok" type="button">OK · Guardar</button>
-    </div>
   </div>
 </div>
 
@@ -495,8 +480,32 @@ libList.addEventListener('click', e => {
   libSelected = (libSelected === id) ? null : id; // solo 1 a la vez
   renderLibrary();
   const entry = window.LIBRARY.find(x => x.id === libSelected);
-  if (entry) openLibEdit(entry);
+  if (entry) {
+    // Rellenar el formulario de arriba y pasar a modo edición
+    libEditingId = entry.id;
+    document.getElementById('lib-name').value = entry.name || '';
+    document.getElementById('lib-dur').value = fmt(entry.duration_seconds ?? 30);
+    document.getElementById('lib-gif').value = entry.gif_url || '';
+    libFormMode();
+  } else {
+    libResetForm();
+  }
 });
+
+function libFormMode() {
+  const editing = libEditingId !== null;
+  document.getElementById('lib-save').style.display = editing ? 'none' : '';
+  document.getElementById('lib-update').style.display = editing ? '' : 'none';
+  document.getElementById('lib-clear').style.display = editing ? '' : 'none';
+}
+
+function libResetForm() {
+  libEditingId = null;
+  document.getElementById('lib-name').value = '';
+  document.getElementById('lib-dur').value = '';
+  document.getElementById('lib-gif').value = '';
+  libFormMode();
+}
 
 function libTargetBox() {
   if (!currentRoutine()) {
@@ -540,36 +549,26 @@ document.getElementById('lib-del-sel').addEventListener('click', async () => {
     libSelected = null;
     popup('Ejercicio eliminado de la biblioteca.');
     renderLibrary();
+    libResetForm();
   } catch (err) { popup('❌ ' + err.message, false); }
 });
 libTarget.addEventListener('focus', refreshLibTarget);
 
-// ---------- Modal: editar ejercicio (solo se guarda con OK) ----------
-let libEditId = null;
+// ---------- Edición en el formulario de arriba (Actualizar / Limpiar) ----------
+let libEditingId = null;
 
-function openLibEdit(entry) {
-  libEditId = entry.id;
-  document.getElementById('libe-name').value = entry.name || '';
-  document.getElementById('libe-dur').value = fmt(entry.duration_seconds ?? 30);
-  document.getElementById('libe-gif').value = entry.gif_url || '';
-  document.getElementById('lib-edit-modal').classList.add('open');
-}
-
-function closeLibEdit() {
-  document.getElementById('lib-edit-modal').classList.remove('open');
-  libEditId = null;
-}
-
-document.getElementById('libe-cancel').addEventListener('click', closeLibEdit);
-document.getElementById('lib-edit-modal').addEventListener('click', e => {
-  if (e.target.id === 'lib-edit-modal') closeLibEdit();
+document.getElementById('lib-clear').addEventListener('click', () => {
+  libSelected = null;
+  renderLibrary();
+  libResetForm();
 });
-document.getElementById('libe-ok').addEventListener('click', async () => {
-  const entry = window.LIBRARY.find(x => x.id === libEditId);
-  if (!entry) { closeLibEdit(); return; }
-  const name = document.getElementById('libe-name').value.trim();
-  const dur = parseDuration(document.getElementById('libe-dur').value);
-  const gif = document.getElementById('libe-gif').value.trim();
+
+document.getElementById('lib-update').addEventListener('click', async () => {
+  const entry = window.LIBRARY.find(x => x.id === libEditingId);
+  if (!entry) { libResetForm(); return; }
+  const name = document.getElementById('lib-name').value.trim();
+  const dur = parseDuration(document.getElementById('lib-dur').value);
+  const gif = document.getElementById('lib-gif').value.trim();
   if (!name) { popup('El nombre es obligatorio.', false); return; }
   if (!dur || dur < 1) { popup('Pon una duración válida (ej: 30 o 1:30).', false); return; }
   try {
@@ -583,8 +582,7 @@ document.getElementById('libe-ok').addEventListener('click', async () => {
     Object.assign(entry, saved);
     window.LIBRARY.sort((a, b) => a.name.localeCompare(b.name));
     renderLibrary();
-    renderLibModal();
-    closeLibEdit();
+    libResetForm();
     popup('✅ Ejercicio actualizado.');
   } catch (err) { popup('❌ ' + err.message, false); }
 });
@@ -637,7 +635,6 @@ document.getElementById('lib-modal').addEventListener('click', e => {
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if (document.getElementById('lib-modal').classList.contains('open')) closeLibModal();
-  if (document.getElementById('lib-edit-modal').classList.contains('open')) closeLibEdit();
 });
 document.getElementById('libm-list').addEventListener('click', e => {
   const pick = e.target.closest('[data-libm-pick]');
