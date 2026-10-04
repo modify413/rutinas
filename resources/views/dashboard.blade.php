@@ -555,6 +555,8 @@ const tTime = document.getElementById('t-time'), tName = document.getElementById
 let queue = [], idx = 0, remaining = 0, totalRoutine = 0, elapsedBefore = 0;
 let tickId = null, paused = false, lastWhole = -1, lastBeepSecond = -1, endAt = 0;
 let audioCtx = null;
+let loadedGifSrc = null;
+let preloadedGifSrc = null;
 
 function beep(freq = 880, dur = 0.15) {
   try {
@@ -577,6 +579,7 @@ async function loadRoutine(id) {
 }
 
 function showIdle() {
+  loadedGifSrc = null; preloadedGifSrc = null;
   timerRun.style.display = 'none'; timerDone.style.display = 'none'; timerEmpty.style.display = 'block';
 }
 function showRun() {
@@ -602,8 +605,30 @@ function renderCurrent() {
   const nxt = queue[idx + 1];
   tNext.textContent = nxt ? `Próximo: ${nxt.name} (${fmt(nxt.duration_seconds)})` : 'Último elemento de la rutina';
   tCount.textContent = `Elemento ${idx + 1} de ${queue.length}`;
-  if (!isRest && cur.gif_url) { tGif.src = cur.gif_url; tGif.style.display = 'block'; tGif.onerror = () => tGif.style.display = 'none'; }
-  else { tGif.removeAttribute('src'); tGif.style.display = 'none'; }
+  if (!isRest && cur.gif_url) {
+    // Cargar el GIF una sola vez por elemento: reasignar el src en cada
+    // tick lo reinicia y nunca avanza de los primeros cuadros.
+    if (loadedGifSrc !== cur.gif_url) {
+      loadedGifSrc = cur.gif_url;
+      tGif.onerror = () => { tGif.style.display = 'none'; loadedGifSrc = null; };
+      tGif.removeAttribute('src');
+      tGif.src = cur.gif_url;
+      tGif.style.display = 'block';
+    } else if (tGif.style.display === 'none') {
+      tGif.style.display = 'block';
+    }
+  }
+  else {
+    loadedGifSrc = null;
+    tGif.removeAttribute('src');
+    tGif.style.display = 'none';
+  }
+  // Precargar el GIF del siguiente elemento (una sola vez) para que arranque al instante
+  if (nxt && nxt.gif_url && nxt.gif_url !== loadedGifSrc && nxt.gif_url !== preloadedGifSrc) {
+    preloadedGifSrc = nxt.gif_url;
+    const pre = new Image();
+    pre.src = nxt.gif_url;
+  }
   const done = queue.slice(0, idx).reduce((a, b) => a + b.duration_seconds, 0) + (cur.duration_seconds - remaining);
   tProgress.style.width = totalRoutine ? Math.min(100, (done / totalRoutine) * 100) + '%' : '0%';
 }
@@ -635,6 +660,7 @@ function startElement(i) {
   idx = i;
   remaining = queue[idx].duration_seconds;
   lastWhole = -1; lastBeepSecond = -1;
+  loadedGifSrc = null; preloadedGifSrc = null; // el nuevo elemento carga su GIF desde el inicio
   endAt = Date.now() + remaining * 1000;
   stopTick();
   renderCurrent();
