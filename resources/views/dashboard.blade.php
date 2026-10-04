@@ -494,12 +494,8 @@ libList.addEventListener('click', e => {
   const id = +pick.dataset.libPick;
   libSelected = (libSelected === id) ? null : id; // solo 1 a la vez
   renderLibrary();
-});
-libList.addEventListener('dblclick', e => {
-  const pick = e.target.closest('[data-lib-pick]');
-  if (!pick) return;
-  const entry = window.LIBRARY.find(x => x.id === +pick.dataset.libPick);
-  if (entry) { libSelected = entry.id; renderLibrary(); openLibEdit(entry); }
+  const entry = window.LIBRARY.find(x => x.id === libSelected);
+  if (entry) openLibEdit(entry);
 });
 
 function libTargetBox() {
