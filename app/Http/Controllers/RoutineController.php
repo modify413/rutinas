@@ -157,15 +157,17 @@ class RoutineController extends Controller
                     continue;
                 }
                 foreach ($section->items as $item) {
+                    $gifUrl = $item->gif_path
+                        ? GifUploadController::temporaryUrl($item->gif_path)
+                        : $item->gif_url;
                     $flat[] = [
                         'id' => $item->id,
                         'section' => $section->title.($reps > 1 ? " · vuelta {$r}/{$reps}" : ''),
                         'type' => $item->type,
                         'name' => $item->name,
                         'duration_seconds' => (int) $item->duration_seconds,
-                        'gif_url' => $item->gif_path
-                            ? GifUploadController::temporaryUrl($item->gif_path)
-                            : $item->gif_url,
+                        'gif_url' => $gifUrl,
+                        'kind' => GifUploadController::mediaKind($gifUrl ?? $item->gif_path),
                     ];
                 }
             }

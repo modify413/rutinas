@@ -90,8 +90,7 @@ class WorkoutTest extends TestCase
     }
 
     public function test_gif_upload_validation_and_gif_path_roundtrip(): void
-    {
-        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+    {        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
 
         // Sin archivo -> 422 (no toca el bucket)
         $this->postJson('/uploads/gif', [])->assertStatus(422);
@@ -225,5 +224,44 @@ class WorkoutTest extends TestCase
         // Guard anti doble-submit presente
         $dash->assertSee('dataset.submitted', false);
         $dash->assertSee('withBtn', false);
+        $dash->assertSee('t-video', false);
+    }
+
+    public function test_video_upload_rules_and_kind(): void
+    {
+        // Detección de tipo por extensión
+        $this->assertSame('video', \App\Http\Controllers\GifUploadController::mediaKind('clip.mp4'));
+        $this->assertSame('video', \App\Http\Controllers\GifUploadController::mediaKind('https://x/y.webm?t=1'));
+        $this->assertSame('image', \App\Http\Controllers\GifUploadController::mediaKind('anim.gif'));
+        $this->assertSame('image', \App\Http\Controllers\GifUploadController::mediaKind(null));
+
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+
+        // Archivo demasiado grande -> 422 sin tocar el bucket
+        $this->postJson('/uploads/gif', [
+            'gif' => \Illuminate\Http\UploadedFile::fake()->create('big.mp4', 26000, 'video/mp4'),
+        ])->assertStatus(422);
+
+        // Tipo no permitido -> 422
+        $this->postJson('/uploads/gif', [
+            'gif' => \Illuminate\Http\UploadedFile::fake()->create('x.txt', 10, 'text/plain'),
+        ])->assertStatus(422);
+
+        // El timer informa el kind de cada elemento
+        $this->post('/routines', ['name' => 'Mix']);
+        $routineId = \App\Models\Routine::where('name', 'Mix')->first()->id;
+        $this->putJson("/routines/{$routineId}", [
+            'name' => 'Mix',
+            'sections' => [[
+                'title' => 'S1',
+                'items' => [
+                    ['type' => 'exercise', 'name' => 'Clip', 'duration_seconds' => 15, 'gif_url' => 'https://x/clip.mp4'],
+                    ['type' => 'exercise', 'name' => 'Gif', 'duration_seconds' => 15, 'gif_url' => 'https://x/a.gif'],
+                ],
+            ]],
+        ])->assertOk();
+        $json = $this->getJson("/routines/{$routineId}/json")->assertOk()->json();
+        $this->assertSame('video', $json['flat'][0]['kind']);
+        $this->assertSame('image', $json['flat'][1]['kind']);
     }
 }

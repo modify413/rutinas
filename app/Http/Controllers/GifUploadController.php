@@ -8,6 +8,8 @@ use Illuminate\Support\Str;
 
 class GifUploadController extends Controller
 {
+    public const MAX_KB = 25600; // 25 MB
+
     public static function client(): S3Client
     {
         $disk = config('filesystems.disks.neon');
@@ -29,14 +31,24 @@ class GifUploadController extends Controller
         return config('filesystems.disks.neon.bucket', 'gifs');
     }
 
+    public static function mediaKind(?string $pathOrUrl): string
+    {
+        return (bool) preg_match('/\.(mp4|webm)(\?|#|$)/i', (string) $pathOrUrl)
+            ? 'video'
+            : 'image';
+    }
+
     public function store(Request $request)
     {
         $request->validate([
-            'gif' => ['required', 'file', 'image', 'max:8192'],
+            'gif' => [
+                'required', 'file', 'max:'.static::MAX_KB,
+                'mimetypes:image/gif,image/jpeg,image/png,image/webp,video/mp4,video/webm',
+            ],
         ], [], ['gif' => 'archivo']);
 
         $file = $request->file('gif');
-        $key = 'gif-'.Str::uuid().'.'.$file->getClientOriginalExtension();
+        $key = 'media-'.Str::uuid().'.'.$file->getClientOriginalExtension();
 
         try {
             static::client()->putObject([
@@ -54,6 +66,7 @@ class GifUploadController extends Controller
         return response()->json([
             'path' => $key,
             'url' => static::temporaryUrl($key),
+            'kind' => static::mediaKind($key),
         ], 201);
     }
 

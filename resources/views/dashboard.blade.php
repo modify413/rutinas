@@ -108,6 +108,7 @@
         <div class="timer-time" id="t-time">00:00</div>
         <div class="timer-name" id="t-name"></div>
         <img class="timer-gif" id="t-gif" alt="" style="display:none">
+        <video class="timer-gif" id="t-video" style="display:none" loop muted playsinline preload="auto"></video>
         <div class="timer-next" id="t-next"></div>
         <div class="progress"><div id="t-progress"></div></div>
         <div class="muted" id="t-count"></div>
@@ -147,8 +148,10 @@
         <input id="lib-dur" placeholder="0:30">
       </div>
     </div>
-    <label for="lib-gif">GIF (URL directa .gif, opcional)</label>
-    <input id="lib-gif" placeholder="https://...gif" maxlength="2048">
+    <label for="lib-gif">GIF o video (URL directa, opcional)</label>
+    <input id="lib-gif" placeholder="https://...gif o ...mp4" maxlength="2048">
+    <label for="lib-file">…o subir desde Mi PC (imagen o video corto, máx 25 MB)</label>
+    <input type="file" id="lib-file" accept="image/gif,image/jpeg,image/png,image/webp,video/mp4,video/webm">
     <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn small" id="lib-save" type="button">💾 Guardar en biblioteca</button>
       <button class="btn small" id="lib-update" type="button" style="display:none">Actualizar</button>
@@ -360,12 +363,13 @@ function itemHtml(item, sIdx, iIdx) {
         <button type="button" class="btn small secondary" data-gifmode="file" style="${item.gif_path ? 'background:var(--accent);border-color:var(--accent)' : ''}">📁 Mi PC</button>
         <button type="button" class="btn small ghost" data-gifclear>Quitar</button>
       </div>
-      <input data-gif value="${esc(item.gif_url || '')}" placeholder="Enlace directo a la imagen (termina en .gif)" maxlength="2048" style="${item.gif_path ? 'display:none' : ''}">
-      <input type="file" data-giffile accept="image/gif,image/*" style="display:none;margin-top:6px">
+      <input data-gif value="${esc(item.gif_url || '')}" placeholder="Enlace directo (imagen .gif o video .mp4)" maxlength="2048" style="${item.gif_path ? 'display:none' : ''}">
+      <input type="file" data-giffile accept="image/gif,image/jpeg,image/png,image/webp,video/mp4,video/webm" style="display:none;margin-top:6px">
       <input type="hidden" data-gifpath value="${esc(item.gif_path || '')}">
       <div><img data-gifpreview alt="" style="max-width:180px;max-height:140px;display:none;border-radius:8px;margin-top:6px;background:#000"></div>
+      <div><video data-gifpreviewv style="max-width:180px;max-height:140px;display:none;border-radius:8px;margin-top:6px;background:#000" loop muted playsinline></video></div>
       <div class="muted" data-gifmsg style="margin-top:4px">${item.gif_path ? '📁 Archivo subido al bucket ✓' : ''}</div>
-      <div class="muted" style="font-size:.75rem">En Giphy/Tenor usa clic derecho → "Copiar dirección de imagen". La página del GIF no funciona, debe ser el enlace directo.</div>
+      <div class="muted" style="font-size:.75rem">Acepta GIF/imagen por enlace directo o video corto MP4. En Giphy/Tenor usa clic derecho → "Copiar dirección de imagen".</div>
     </div>
     <div class="item-actions">
       <button type="button" class="btn small secondary" data-move-item="-1">↑</button>
@@ -454,6 +458,26 @@ function renderLibrary() {
   document.getElementById('lib-actions').style.display = libSelected ? '' : 'none';
 }
 
+async function libUploadFile() {
+  const f = document.getElementById('lib-file').files[0] || null;
+  if (!f) return null;
+  popup(`Subiendo ${f.name}…`);
+  const fd = new FormData();
+  fd.append('gif', f);
+  const res = await fetch('/uploads/gif', {
+    method: 'POST',
+    headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
+    body: fd,
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data || !data.path) throw new Error((data && data.message) || ('No se pudo subir ' + f.name));
+  return data.path;
+}
+
+function libClearFile() {
+  document.getElementById('lib-file').value = '';
+}
+
 document.getElementById('lib-save').addEventListener('click', () => withBtn(document.getElementById('lib-save'), async () => {
   const name = document.getElementById('lib-name').value.trim();
   const dur = parseDuration(document.getElementById('lib-dur').value);
@@ -462,10 +486,11 @@ document.getElementById('lib-save').addEventListener('click', () => withBtn(docu
   if (!dur || dur < 1) { popup('Pon una duración válida (ej: 30 o 1:30).', false); return; }
   popup('Guardando en biblioteca…');
   try {
+    const gifPath = await libUploadFile();
     const res = await fetch('/library', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
-      body: JSON.stringify({ name, duration_seconds: dur, gif_url: gif || null, gif_path: null }),
+      body: JSON.stringify({ name, duration_seconds: dur, gif_url: gifPath ? null : (gif || null), gif_path: gifPath }),
     });
     if (!res.ok) throw new Error('Error ' + res.status);
     const saved = await res.json();
@@ -474,6 +499,7 @@ document.getElementById('lib-save').addEventListener('click', () => withBtn(docu
     document.getElementById('lib-name').value = '';
     document.getElementById('lib-dur').value = '';
     document.getElementById('lib-gif').value = '';
+    libClearFile();
     libStatus.textContent = '';
     popup('✅ Ejercicio guardado en tu biblioteca.');
     renderLibrary();
@@ -511,6 +537,7 @@ function libResetForm() {
   document.getElementById('lib-name').value = '';
   document.getElementById('lib-dur').value = '';
   document.getElementById('lib-gif').value = '';
+  libClearFile();
   libFormMode();
 }
 
@@ -579,10 +606,16 @@ document.getElementById('lib-update').addEventListener('click', () => withBtn(do
   if (!name) { popup('El nombre es obligatorio.', false); return; }
   if (!dur || dur < 1) { popup('Pon una duración válida (ej: 30 o 1:30).', false); return; }
   try {
+    const newPath = await libUploadFile();
     const res = await fetch(`/library/${entry.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
-      body: JSON.stringify({ name, duration_seconds: dur, gif_url: gif || null, gif_path: entry.gif_path }),
+      body: JSON.stringify({
+        name,
+        duration_seconds: dur,
+        gif_url: newPath ? null : (gif || null),
+        gif_path: newPath || entry.gif_path,
+      }),
     });
     if (!res.ok) throw new Error('Error ' + res.status);
     const saved = await res.json();
@@ -590,6 +623,7 @@ document.getElementById('lib-update').addEventListener('click', () => withBtn(do
     window.LIBRARY.sort((a, b) => a.name.localeCompare(b.name));
     renderLibrary();
     libResetForm();
+    libClearFile();
     popup('✅ Ejercicio actualizado.');
   } catch (err) { popup('❌ ' + err.message, false); }
 }));
@@ -766,8 +800,7 @@ sectionsEl.addEventListener('click', e => {
     item.querySelector('[data-gifpath]').value = '';
     item.querySelector('[data-giffile]').value = '';
     item._gifFile = null;
-    const prev = item.querySelector('[data-gifpreview]');
-    prev.removeAttribute('src'); prev.style.display = 'none';
+    hidePreviews(item);
     item.querySelector('[data-gifmsg]').textContent = '';
     return;
   }
@@ -792,21 +825,45 @@ sectionsEl.addEventListener('click', e => {
 
 sectionsEl.addEventListener('input', e => { recalcTotal(); });
 
+function isVideoSrc(url) {
+  return /\.(mp4|webm)(\?|#|$)/i.test(String(url || ''));
+}
+
+function hidePreviews(item) {
+  const prev = item.querySelector('[data-gifpreview]');
+  const prevV = item.querySelector('[data-gifpreviewv]');
+  prev.removeAttribute('src'); prev.style.display = 'none';
+  prevV.removeAttribute('src'); prevV.style.display = 'none';
+}
+
 function updateGifPreview(item) {
   const urlInput = item.querySelector('[data-gif]');
   const url = urlInput.value.trim();
-  const prev = item.querySelector('[data-gifpreview]');
   const msg = item.querySelector('[data-gifmsg]');
   const savedPath = item.querySelector('[data-gifpath]').value;
+  hidePreviews(item);
   if (!url) {
-    prev.removeAttribute('src'); prev.style.display = 'none';
     msg.textContent = savedPath ? '📁 Archivo subido al bucket ✓' : '';
+    return;
+  }
+  if (isVideoSrc(url)) {
+    const prevV = item.querySelector('[data-gifpreviewv]');
+    prevV.src = url;
+    prevV.style.display = 'block';
+    msg.textContent = '✅ Vista previa del video.';
     return;
   }
   msg.textContent = '⏳ Comprobando enlace…';
   const probe = new Image();
-  probe.onload = () => { prev.src = url; prev.style.display = 'block'; msg.textContent = '✅ El GIF se ve correctamente.'; };
-  probe.onerror = () => { prev.removeAttribute('src'); prev.style.display = 'none'; msg.textContent = '❌ Ese enlace no carga como imagen. Usa el enlace directo (termina en .gif).'; };
+  probe.onload = () => {
+    item.querySelector('[data-gifpreview]').src = url;
+    item.querySelector('[data-gifpreview]').style.display = 'block';
+    msg.textContent = '✅ El GIF se ve correctamente.';
+  };
+  probe.onerror = () => {
+    hidePreviews(item);
+    msg.textContent = '❌ Ese enlace no carga como imagen. Usa el enlace directo (termina en .gif).';
+  };
   probe.src = url;
 }
 
@@ -819,13 +876,21 @@ sectionsEl.addEventListener('change', e => {
     const f = e.target.files[0] || null;
     item._gifFile = f;
     const prev = item.querySelector('[data-gifpreview]');
+    const prevV = item.querySelector('[data-gifpreviewv]');
     const msg = item.querySelector('[data-gifmsg]');
+    hidePreviews(item);
     if (f) {
-      prev.src = URL.createObjectURL(f);
-      prev.style.display = 'block';
+      const objUrl = URL.createObjectURL(f);
+      if (f.type.startsWith('video/')) {
+        prevV.src = objUrl;
+        prevV.style.display = 'block';
+      } else {
+        prev.src = objUrl;
+        prev.style.display = 'block';
+      }
       msg.textContent = `📁 ${f.name} listo. Se sube al guardar la rutina.`;
     } else {
-      prev.removeAttribute('src'); prev.style.display = 'none'; msg.textContent = '';
+      msg.textContent = '';
     }
     return;
   }
@@ -927,7 +992,7 @@ const timerEmpty = document.getElementById('timer-empty');
 const timerRun = document.getElementById('timer-run');
 const timerDone = document.getElementById('timer-done');
 const tTime = document.getElementById('t-time'), tName = document.getElementById('t-name'),
-      tGif = document.getElementById('t-gif'), tNext = document.getElementById('t-next'),
+      tGif = document.getElementById('t-gif'), tVideo = document.getElementById('t-video'), tNext = document.getElementById('t-next'),
       tSection = document.getElementById('t-section'), tCount = document.getElementById('t-count'),
       tProgress = document.getElementById('t-progress');
 
@@ -959,6 +1024,7 @@ async function loadRoutine(id) {
 
 function showIdle() {
   loadedGifSrc = null; preloadedGifSrc = null;
+  tVideo.pause();
   timerRun.style.display = 'none'; timerDone.style.display = 'none'; timerEmpty.style.display = 'block';
 }
 function showRun() {
@@ -967,6 +1033,7 @@ function showRun() {
 function showDone() {
   timerRun.style.display = 'none'; timerDone.style.display = 'block';
   stopTick();
+  tVideo.pause();
   beep(660, .2); setTimeout(() => beep(880, .25), 220); setTimeout(() => beep(1100, .35), 480);
 }
 
@@ -985,28 +1052,54 @@ function renderCurrent() {
   tNext.textContent = nxt ? `Próximo: ${nxt.name} (${fmt(nxt.duration_seconds)})` : 'Último elemento de la rutina';
   tCount.textContent = `Elemento ${idx + 1} de ${queue.length}`;
   if (!isRest && cur.gif_url) {
-    // Cargar el GIF una sola vez por elemento: reasignar el src en cada
-    // tick lo reinicia y nunca avanza de los primeros cuadros.
+    // Cargar el medio una sola vez por elemento: reasignar el src en cada
+    // tick lo reinicia y nunca avanza.
+    const kind = cur.kind || (/\.(mp4|webm)(\?|#|$)/i.test(cur.gif_url) ? 'video' : 'image');
+    const showImg = kind !== 'video';
     if (loadedGifSrc !== cur.gif_url) {
       loadedGifSrc = cur.gif_url;
       tGif.onerror = () => { tGif.style.display = 'none'; loadedGifSrc = null; };
+      tVideo.onerror = () => { tVideo.style.display = 'none'; loadedGifSrc = null; };
       tGif.removeAttribute('src');
-      tGif.src = cur.gif_url;
-      tGif.style.display = 'block';
-    } else if (tGif.style.display === 'none') {
-      tGif.style.display = 'block';
+      tVideo.removeAttribute('src');
+      tVideo.pause();
+      if (showImg) {
+        tVideo.style.display = 'none';
+        tGif.src = cur.gif_url;
+        tGif.style.display = 'block';
+      } else {
+        tGif.style.display = 'none';
+        tVideo.src = cur.gif_url;
+        tVideo.style.display = 'block';
+        tVideo.play().catch(() => {});
+      }
+    } else {
+      tGif.style.display = showImg && tGif.getAttribute('src') ? 'block' : 'none';
+      tVideo.style.display = !showImg && tVideo.getAttribute('src') ? 'block' : 'none';
+      if (!showImg && paused) tVideo.pause();
+      else if (!showImg && !paused && tVideo.paused) tVideo.play().catch(() => {});
     }
   }
   else {
     loadedGifSrc = null;
     tGif.removeAttribute('src');
+    tVideo.removeAttribute('src');
+    tVideo.pause();
     tGif.style.display = 'none';
+    tVideo.style.display = 'none';
   }
-  // Precargar el GIF del siguiente elemento (una sola vez) para que arranque al instante
+  // Precargar el medio del siguiente elemento (una sola vez) para que arranque al instante
   if (nxt && nxt.gif_url && nxt.gif_url !== loadedGifSrc && nxt.gif_url !== preloadedGifSrc) {
     preloadedGifSrc = nxt.gif_url;
-    const pre = new Image();
-    pre.src = nxt.gif_url;
+    const nkind = nxt.kind || (/\.(mp4|webm)(\?|#|$)/i.test(nxt.gif_url) ? 'video' : 'image');
+    if (nkind === 'video') {
+      const pre = document.createElement('video');
+      pre.preload = 'auto'; pre.muted = true;
+      pre.src = nxt.gif_url;
+    } else {
+      const pre = new Image();
+      pre.src = nxt.gif_url;
+    }
   }
   const done = queue.slice(0, idx).reduce((a, b) => a + b.duration_seconds, 0) + (cur.duration_seconds - remaining);
   tProgress.style.width = totalRoutine ? Math.min(100, (done / totalRoutine) * 100) + '%' : '0%';
@@ -1065,7 +1158,12 @@ document.getElementById('timer-pause').addEventListener('click', (e) => {
   if (!queue.length) return;
   paused = !paused;
   e.target.textContent = paused ? '▶ Reanudar' : '⏸ Pausar';
-  if (!paused) endAt = Date.now() + remaining * 1000;
+  if (!paused) {
+    endAt = Date.now() + remaining * 1000;
+    if (tVideo.style.display !== 'none' && tVideo.getAttribute('src')) tVideo.play().catch(() => {});
+  } else {
+    tVideo.pause();
+  }
 });
 
 document.getElementById('timer-stop').addEventListener('click', () => { stopTick(); queue = []; showIdle(); });
@@ -1125,6 +1223,7 @@ document.addEventListener('fullscreenchange', () => {
 function pauseTimerAuto() {
   if (queue.length && tickId && !paused) {
     paused = true;
+    tVideo.pause();
     const pb = document.getElementById('timer-pause');
     if (pb) pb.textContent = '▶ Reanudar';
   }
