@@ -4,13 +4,14 @@
 
 @section('content')
 @php
-  $selectedId = (int) request('routine_id', $routines->first()?->id ?? 0);
+  $selectedId = (int) request('routine_id', 0);
 @endphp
 
 <div class="dash">
   <aside class="sidebar" id="sidebar">
     <button class="tab-btn" data-tab="rutinas"><span class="ico">📝</span><span class="lbl">Crear rutinas</span></button>
     <button class="tab-btn" data-tab="timer"><span class="ico">⏱️</span><span class="lbl">Timer</span></button>
+    <button class="tab-btn" data-tab="biblioteca"><span class="ico">📚</span><span class="lbl">Biblioteca</span></button>
     <button class="tab-btn" data-tab="config"><span class="ico">⚙️</span><span class="lbl">Configuración</span></button>
   </aside>
   <div class="dash-main">
@@ -61,32 +62,6 @@
         </div>
 
         <div class="total">Tiempo total: <span id="total-time">0:00</span></div>
-
-        <div class="card" id="library-card" style="background:#000;margin:12px 0">
-          <h4 style="margin:0">📚 Mi biblioteca de ejercicios</h4>
-          <p class="muted" style="margin:4px 0 0">Guarda tus ejercicios con su GIF y agrégalos con un clic a cualquier sección.</p>
-          <div class="row">
-            <div style="flex:2;min-width:150px">
-              <label for="lib-name">Nombre</label>
-              <input id="lib-name" maxlength="255" placeholder="Ej: Flexiones">
-            </div>
-            <div style="flex:1;min-width:100px">
-              <label for="lib-dur">Tiempo (s o m:ss)</label>
-              <input id="lib-dur" placeholder="0:30">
-            </div>
-          </div>
-          <label for="lib-gif">GIF (URL directa .gif, opcional)</label>
-          <input id="lib-gif" placeholder="https://...gif" maxlength="2048">
-          <div style="margin-top:8px">
-            <button class="btn small" id="lib-save" type="button">💾 Guardar en biblioteca</button>
-          </div>
-          <div style="margin-top:10px">
-            <label for="lib-target">Agregar a la sección</label>
-            <select id="lib-target"></select>
-          </div>
-          <div id="lib-list" style="margin-top:8px;display:flex;flex-direction:column;gap:8px"></div>
-          <p class="muted" id="lib-status" style="margin-bottom:0"></p>
-        </div>
 
         <div id="sections"></div>
 
@@ -157,7 +132,39 @@
   </div>
 </div>
 
-{{-- PESTAÑA 3: CONFIG --}}
+{{-- PESTAÑA 3: BIBLIOTECA --}}
+<div class="tab-panel" id="panel-biblioteca">
+  <div class="card">
+    <h3 style="margin-top:0">📚 Mi biblioteca de ejercicios</h3>
+    <p class="muted" style="margin-top:0">Crea tus ejercicios con su GIF y agrégalos con un clic a cualquier sección de la rutina elegida.</p>
+    <div class="row">
+      <div style="flex:2;min-width:150px">
+        <label for="lib-name">Nombre</label>
+        <input id="lib-name" maxlength="255" placeholder="Ej: Flexiones">
+      </div>
+      <div style="flex:1;min-width:100px">
+        <label for="lib-dur">Tiempo (s o m:ss)</label>
+        <input id="lib-dur" placeholder="0:30">
+      </div>
+    </div>
+    <label for="lib-gif">GIF (URL directa .gif, opcional)</label>
+    <input id="lib-gif" placeholder="https://...gif" maxlength="2048">
+    <div style="margin-top:8px">
+      <button class="btn small" id="lib-save" type="button">💾 Guardar en biblioteca</button>
+    </div>
+    <hr style="border-color:var(--line);margin:14px 0">
+    <div class="row">
+      <div style="flex:1;min-width:160px">
+        <label for="lib-target">Agregar a la sección de la rutina elegida</label>
+        <select id="lib-target"></select>
+      </div>
+    </div>
+    <div id="lib-list" style="margin-top:8px;display:flex;flex-direction:column;gap:8px"></div>
+    <p class="muted" id="lib-status" style="margin-bottom:0"></p>
+  </div>
+</div>
+
+{{-- PESTAÑA 4: CONFIG --}}
 <div class="tab-panel" id="panel-config">
   <div class="grid2">
     <div class="card">
@@ -216,16 +223,17 @@ if (navScrim) navScrim.addEventListener('click', () => document.body.classList.r
 
 // ---------- Tabs ----------
 const tabBtns = document.querySelectorAll('.tab-btn');
-const panels = { rutinas: document.getElementById('panel-rutinas'), timer: document.getElementById('panel-timer'), config: document.getElementById('panel-config') };
+const panels = { rutinas: document.getElementById('panel-rutinas'), timer: document.getElementById('panel-timer'), biblioteca: document.getElementById('panel-biblioteca'), config: document.getElementById('panel-config') };
 function showTab(name) {
   tabBtns.forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   Object.entries(panels).forEach(([k, el]) => el.classList.toggle('active', k === name));
   try { localStorage.setItem('app_tab', name); } catch(e) {}
   document.body.classList.remove('nav-open');
   document.dispatchEvent(new CustomEvent('dashboard-tab', { detail: name }));
+  if (name === 'biblioteca') { try { renderLibrary(); refreshLibTarget(); } catch(e) {} }
 }
 tabBtns.forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
-showTab(['rutinas','timer','config'].includes(window.INIT_TAB) ? window.INIT_TAB : (localStorage.getItem('app_tab') || 'rutinas'));
+showTab(['rutinas','timer','biblioteca','config'].includes(window.INIT_TAB) ? window.INIT_TAB : (localStorage.getItem('app_tab') || 'rutinas'));
 
 // ---------- Helpers duración ----------
 function parseDuration(str) {
@@ -379,7 +387,7 @@ function refreshLibTarget() {
         const reps = sectionReps(s);
         return `<option value="${i}">Sección ${i + 1}: ${esc(t)}${reps > 1 ? ' (×' + reps + ')' : ''}</option>`;
       }).join('')
-    : '<option value="">(crea una sección primero)</option>';
+    : '<option value="">(elige una rutina en "Crear rutinas")</option>';
 }
 
 function renderLibrary() {
@@ -431,17 +439,26 @@ libList.addEventListener('click', async e => {
   if (add) {
     const entry = window.LIBRARY.find(x => x.id === +add.dataset.libAdd);
     if (!entry) return;
+    if (!currentRoutine()) {
+      alert('Elige primero una rutina en "Crear rutinas".');
+      showTab('rutinas');
+      return;
+    }
     const secs = [...sectionsEl.querySelectorAll('[data-section]')];
     let box = secs[+libTarget.value] ? secs[+libTarget.value].querySelector('[data-items]') : null;
     if (!box) {
-      document.getElementById('btn-add-section').click();
-      box = [...sectionsEl.querySelectorAll('[data-section]')].pop().querySelector('[data-items]');
+      if (!secs.length) {
+        alert('La rutina no tiene secciones. Agrega una sección primero en "Crear rutinas".');
+        showTab('rutinas');
+        return;
+      }
+      box = secs[secs.length - 1].querySelector('[data-items]');
     }
     const w = document.createElement('div');
     w.innerHTML = itemHtml({ type: 'exercise', name: entry.name, duration_seconds: entry.duration_seconds, duration_display: fmt(entry.duration_seconds), gif_url: entry.gif_url, gif_path: entry.gif_path });
     box.appendChild(w.firstElementChild);
     recalcTotal();
-    libStatus.textContent = `✅ "${entry.name}" agregado a la sección.`;
+    libStatus.textContent = `✅ "${entry.name}" agregado. Ábrelo en "Crear rutinas" y guarda la rutina.`;
     return;
   }
   if (del) {
@@ -919,9 +936,11 @@ function pauseTimerAuto() {
 document.addEventListener('dashboard-tab', (e) => {
   if (e.detail !== 'timer') pauseTimerAuto();
 });
-// Al ocultar la pestaña del navegador
+// Al pausar, al ocultar la pestaña del navegador
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseTimerAuto();
 });
+// Si se entra directamente a la biblioteca (pestaña recordada), pintarla
+if (panels.biblioteca.classList.contains('active')) { renderLibrary(); refreshLibTarget(); }
 </script>
 @endsection

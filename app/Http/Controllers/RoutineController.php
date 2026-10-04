@@ -145,10 +145,17 @@ class RoutineController extends Controller
         $this->authorizeRoutine($routine);
         $routine->load(['sections.items']);
 
+        // Las repeticiones se ejecutan por vueltas: primero todas las
+        // secciones, luego se repite la vuelta completa.
+        // Ej: S1×2, S2×2 => S1, S2, S1, S2
+        $maxReps = max(1, (int) $routine->sections->max('reps'));
         $flat = [];
-        foreach ($routine->sections as $section) {
-            $reps = max(1, (int) $section->reps);
-            for ($r = 1; $r <= $reps; $r++) {
+        for ($r = 1; $r <= $maxReps; $r++) {
+            foreach ($routine->sections as $section) {
+                $reps = max(1, (int) $section->reps);
+                if ($reps < $r) {
+                    continue;
+                }
                 foreach ($section->items as $item) {
                     $flat[] = [
                         'id' => $item->id,
