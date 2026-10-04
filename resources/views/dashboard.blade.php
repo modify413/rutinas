@@ -258,8 +258,18 @@ function itemHtml(item, sIdx, iIdx) {
         </select></div>
     </div>
     <div class="gif-row" style="${isRest ? 'display:none' : ''};margin-top:8px">
-      <label>GIF (URL opcional, solo ejercicios)</label>
-      <input data-gif value="${esc(item.gif_url || '')}" placeholder="https://...gif" maxlength="2048">
+      <label>GIF del ejercicio (opcional)</label>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <button type="button" class="btn small ${item.gif_path ? 'secondary' : ''}" data-gifmode="url" style="${item.gif_path ? '' : 'background:var(--accent)'}">🔗 URL</button>
+        <button type="button" class="btn small secondary" data-gifmode="file" style="${item.gif_path ? 'background:var(--accent);border-color:var(--accent)' : ''}">📁 Mi PC</button>
+        <button type="button" class="btn small ghost" data-gifclear>Quitar</button>
+      </div>
+      <input data-gif value="${esc(item.gif_url || '')}" placeholder="Enlace directo a la imagen (termina en .gif)" maxlength="2048" style="${item.gif_path ? 'display:none' : ''}">
+      <input type="file" data-giffile accept="image/gif,image/*" style="display:none;margin-top:6px">
+      <input type="hidden" data-gifpath value="${esc(item.gif_path || '')}">
+      <div><img data-gifpreview alt="" style="max-width:180px;max-height:140px;display:none;border-radius:8px;margin-top:6px;background:#000"></div>
+      <div class="muted" data-gifmsg style="margin-top:4px">${item.gif_path ? '📁 Archivo subido al bucket ✓' : ''}</div>
+      <div class="muted" style="font-size:.75rem">En Giphy/Tenor usa clic derecho → "Copiar dirección de imagen". La página del GIF no funciona, debe ser el enlace directo.</div>
     </div>
     <div class="item-actions">
       <button type="button" class="btn small secondary" data-move-item="-1">↑</button>
@@ -350,6 +360,38 @@ sectionsEl.addEventListener('click', e => {
   }
   if (e.target.closest('[data-del-section]')) { e.target.closest('[data-section]').remove(); recalcTotal(); return; }
   if (e.target.closest('[data-del-item]')) { e.target.closest('[data-item]').remove(); recalcTotal(); return; }
+  const gifMode = e.target.closest('[data-gifmode]');
+  if (gifMode) {
+    const item = gifMode.closest('[data-item]');
+    const urlIn = item.querySelector('[data-gif]');
+    const fileIn = item.querySelector('[data-giffile]');
+    const msg = item.querySelector('[data-gifmsg]');
+    const isFile = gifMode.dataset.gifmode === 'file';
+    urlIn.style.display = isFile ? 'none' : '';
+    fileIn.style.display = isFile ? '' : 'none';
+    gifMode.parentElement.querySelectorAll('[data-gifmode]').forEach(b => { b.style.background = ''; b.style.borderColor = ''; });
+    gifMode.style.background = 'var(--accent)'; gifMode.style.borderColor = 'var(--accent)';
+    if (isFile) {
+      msg.textContent = item.querySelector('[data-gifpath]').value
+        ? '📁 Ya hay un archivo subido ✓ (elige otro para reemplazarlo).'
+        : 'Elige un GIF de tu PC (máx 8 MB). Se sube al guardar.';
+    } else {
+      fileIn.value = ''; item._gifFile = null;
+      updateGifPreview(item);
+    }
+    return;
+  }
+  if (e.target.closest('[data-gifclear]')) {
+    const item = e.target.closest('[data-item]');
+    item.querySelector('[data-gif]').value = '';
+    item.querySelector('[data-gifpath]').value = '';
+    item.querySelector('[data-giffile]').value = '';
+    item._gifFile = null;
+    const prev = item.querySelector('[data-gifpreview]');
+    prev.removeAttribute('src'); prev.style.display = 'none';
+    item.querySelector('[data-gifmsg]').textContent = '';
+    return;
+  }
   const mvS = e.target.closest('[data-move-section]');
   if (mvS) {
     const sec = mvS.closest('[data-section]');
@@ -370,7 +412,44 @@ sectionsEl.addEventListener('click', e => {
 });
 
 sectionsEl.addEventListener('input', e => { recalcTotal(); });
+
+function updateGifPreview(item) {
+  const urlInput = item.querySelector('[data-gif]');
+  const url = urlInput.value.trim();
+  const prev = item.querySelector('[data-gifpreview]');
+  const msg = item.querySelector('[data-gifmsg]');
+  const savedPath = item.querySelector('[data-gifpath]').value;
+  if (!url) {
+    prev.removeAttribute('src'); prev.style.display = 'none';
+    msg.textContent = savedPath ? '📁 Archivo subido al bucket ✓' : '';
+    return;
+  }
+  msg.textContent = '⏳ Comprobando enlace…';
+  const probe = new Image();
+  probe.onload = () => { prev.src = url; prev.style.display = 'block'; msg.textContent = '✅ El GIF se ve correctamente.'; };
+  probe.onerror = () => { prev.removeAttribute('src'); prev.style.display = 'none'; msg.textContent = '❌ Ese enlace no carga como imagen. Usa el enlace directo (termina en .gif).'; };
+  probe.src = url;
+}
+
+sectionsEl.addEventListener('input', e => {
+  if (e.target.matches('[data-gif]')) updateGifPreview(e.target.closest('[data-item]'));
+});
 sectionsEl.addEventListener('change', e => {
+  if (e.target.matches('[data-giffile]')) {
+    const item = e.target.closest('[data-item]');
+    const f = e.target.files[0] || null;
+    item._gifFile = f;
+    const prev = item.querySelector('[data-gifpreview]');
+    const msg = item.querySelector('[data-gifmsg]');
+    if (f) {
+      prev.src = URL.createObjectURL(f);
+      prev.style.display = 'block';
+      msg.textContent = `📁 ${f.name} listo. Se sube al guardar la rutina.`;
+    } else {
+      prev.removeAttribute('src'); prev.style.display = 'none'; msg.textContent = '';
+    }
+    return;
+  }
   if (e.target.matches('[data-type]')) {
     const item = e.target.closest('[data-item]');
     const gifRow = item.querySelector('.gif-row');
@@ -390,6 +469,29 @@ document.getElementById('btn-save').addEventListener('click', async () => {
   if (!r) return;
   const name = nameEl.value.trim();
   if (!name) { statusEl.textContent = 'El nombre de la rutina es obligatorio.'; return; }
+  // Subir primero los GIF elegidos desde la PC
+  const pending = [...sectionsEl.querySelectorAll('[data-item]')]
+    .filter(it => it._gifFile && it.querySelector('[data-type]').value === 'exercise');
+  if (pending.length) statusEl.textContent = `Subiendo ${pending.length} GIF(s)…`;
+  for (const it of pending) {
+    const fd = new FormData();
+    fd.append('gif', it._gifFile);
+    try {
+      const res = await fetch('/uploads/gif', {
+        method: 'POST',
+        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
+        body: fd,
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || !data.path) throw new Error((data && data.message) || ('No se pudo subir ' + it._gifFile.name));
+      it.querySelector('[data-gifpath]').value = data.path;
+      it.querySelector('[data-gif]').value = '';
+      it._gifFile = null;
+    } catch (err) {
+      statusEl.textContent = '❌ ' + err.message;
+      return;
+    }
+  }
   const sections = [...sectionsEl.querySelectorAll('[data-section]')].map(sec => ({
     id: sec.dataset.sid ? +sec.dataset.sid : null,
     title: sec.querySelector('[data-title]').value.trim() || 'Sección',
@@ -403,6 +505,7 @@ document.getElementById('btn-save').addEventListener('click', async () => {
         name: nm,
         duration_seconds: Math.max(1, parseDuration(it.querySelector('[data-dur]').value) || 30),
         gif_url: type === 'exercise' ? (it.querySelector('[data-gif]').value.trim() || null) : null,
+        gif_path: type === 'exercise' ? (it.querySelector('[data-gifpath]').value.trim() || null) : null,
       };
     }),
   }));

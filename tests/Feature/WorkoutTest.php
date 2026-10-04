@@ -30,8 +30,7 @@ class WorkoutTest extends TestCase
     }
 
     public function test_full_routine_flow(): void
-    {
-        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+    {        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
 
         // Crear rutina
         $this->post('/routines', ['name' => 'Cardio'])->assertRedirect();
@@ -88,5 +87,41 @@ class WorkoutTest extends TestCase
         $this->post('/logout');
         $this->post('/login', ['username' => 'coach', 'password' => 'nueva123'])->assertRedirect('/');
         $this->assertAuthenticated();
+    }
+
+    public function test_gif_upload_validation_and_gif_path_roundtrip(): void
+    {
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+
+        // Sin archivo -> 422 (no toca el bucket)
+        $this->postJson('/uploads/gif', [])->assertStatus(422);
+
+        // Archivo no imagen -> 422 (no toca el bucket)
+        $this->postJson('/uploads/gif', [
+            'gif' => \Illuminate\Http\UploadedFile::fake()->create('doc.pdf', 10, 'application/pdf'),
+        ])->assertStatus(422);
+
+        // Invitado no puede subir
+        $this->post('/logout');
+        $this->postJson('/uploads/gif', [])->assertUnauthorized();
+
+        // gif_path se guarda y el timer lo resuelve (sin bucket devuelve null, no rompe)
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+        $this->post('/routines', ['name' => 'ConGif']);
+        $routineId = \App\Models\Routine::where('name', 'ConGif')->first()->id;
+        $this->putJson("/routines/{$routineId}", [
+            'name' => 'ConGif',
+            'sections' => [[
+                'title' => 'S1',
+                'items' => [[
+                    'type' => 'exercise', 'name' => 'Saltos',
+                    'duration_seconds' => 20,
+                    'gif_url' => null, 'gif_path' => 'gif-fake-123.gif',
+                ]],
+            ]],
+        ])->assertOk();
+        $this->assertDatabaseHas('routine_items', ['name' => 'Saltos', 'gif_path' => 'gif-fake-123.gif']);
+        $json = $this->getJson("/routines/{$routineId}/json")->assertOk()->json();
+        $this->assertArrayHasKey('gif_url', $json['flat'][0]);
     }
 }

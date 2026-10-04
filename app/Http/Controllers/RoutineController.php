@@ -39,6 +39,7 @@ class RoutineController extends Controller
             'sections.*.items.*.name' => ['required_with:sections.*.items', 'string', 'max:255'],
             'sections.*.items.*.duration_seconds' => ['required_with:sections.*.items', 'integer', 'min:1', 'max:86400'],
             'sections.*.items.*.gif_url' => ['nullable', 'string', 'max:2048'],
+            'sections.*.items.*.gif_path' => ['nullable', 'string', 'max:1024'],
         ]);
 
         DB::transaction(function () use ($routine, $data) {
@@ -71,8 +72,18 @@ class RoutineController extends Controller
                     if ($gif === '') {
                         $gif = null;
                     }
+                    $gifPath = $itemInput['gif_path'] ?? null;
+                    $gifPath = is_string($gifPath) ? trim($gifPath) : null;
+                    if ($gifPath === '') {
+                        $gifPath = null;
+                    }
                     // Solo los ejercicios pueden tener GIF
                     if (($itemInput['type'] ?? 'exercise') === 'rest') {
+                        $gif = null;
+                        $gifPath = null;
+                    }
+                    // El archivo subido tiene prioridad sobre la URL
+                    if ($gifPath) {
                         $gif = null;
                     }
 
@@ -81,6 +92,7 @@ class RoutineController extends Controller
                         'name' => $itemInput['name'],
                         'duration_seconds' => (int) $itemInput['duration_seconds'],
                         'gif_url' => $gif,
+                        'gif_path' => $gifPath,
                         'position' => $itemIndex,
                     ];
 
@@ -138,7 +150,9 @@ class RoutineController extends Controller
                     'type' => $item->type,
                     'name' => $item->name,
                     'duration_seconds' => (int) $item->duration_seconds,
-                    'gif_url' => $item->gif_url,
+                    'gif_url' => $item->gif_path
+                        ? GifUploadController::temporaryUrl($item->gif_path)
+                        : $item->gif_url,
                 ];
             }
         }
@@ -155,6 +169,7 @@ class RoutineController extends Controller
                     'name' => $i->name,
                     'duration_seconds' => (int) $i->duration_seconds,
                     'gif_url' => $i->gif_url,
+                    'gif_path' => $i->gif_path,
                 ])->values(),
             ])->values(),
             'flat' => $flat,

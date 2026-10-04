@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class RoutineItem extends Model
 {
     protected $fillable = [
-        'section_id', 'type', 'name', 'duration_seconds', 'gif_url', 'position',
+        'section_id', 'type', 'name', 'duration_seconds', 'gif_url', 'gif_path', 'position',
     ];
 
     public function section()

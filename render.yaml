@@ -31,3 +31,13 @@ services:
         value: database
       - key: LOG_CHANNEL
         value: errorlog
+      - key: GIFS_BUCKET
+        value: gifs
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_ENDPOINT_URL_S3
+        sync: false
+      - key: AWS_REGION
+        value: us-east-2
