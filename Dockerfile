@@ -2,8 +2,8 @@
 FROM php:8.5-cli-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git unzip libzip-dev libsqlite3-dev \
-    && docker-php-ext-install pdo pdo_sqlite sqlite3 zip bcmath opcache \
+    git unzip libzip-dev libsqlite3-dev libpq-dev \
+    && docker-php-ext-install pdo pdo_sqlite pdo_pgsql sqlite3 zip bcmath opcache \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer

@@ -1,10 +1,12 @@
 #!/bin/sh
 set -e
 
-# SQLite vive en el disco persistente de Render para no perder datos
-export DB_DATABASE="${DB_DATABASE:-/data/database.sqlite}"
-mkdir -p "$(dirname "$DB_DATABASE")"
-[ -f "$DB_DATABASE" ] || touch "$DB_DATABASE"
+# SQLite local/archivo: asegurar el fichero. Con Postgres no hace falta.
+if [ "${DB_CONNECTION:-sqlite}" = "sqlite" ]; then
+  export DB_DATABASE="${DB_DATABASE:-/data/database.sqlite}"
+  mkdir -p "$(dirname "$DB_DATABASE")"
+  [ -f "$DB_DATABASE" ] || touch "$DB_DATABASE"
+fi
 
 mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache bootstrap/cache
 
