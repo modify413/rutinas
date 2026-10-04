@@ -307,6 +307,13 @@ function popup(msg, ok = true) {
   setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 350); }, 3500);
 }
 
+// Anti doble-clic para acciones fetch: deshabilita el botón mientras trabaja
+async function withBtn(btn, fn) {
+  if (!btn || btn.disabled) return;
+  btn.disabled = true;
+  try { await fn(); } finally { if (btn.isConnected) btn.disabled = false; }
+}
+
 // ---------- Editor de rutinas ----------
 let selectedId = window.SELECTED_ID || null;
 const sectionsEl = document.getElementById('sections');
@@ -447,7 +454,7 @@ function renderLibrary() {
   document.getElementById('lib-actions').style.display = libSelected ? '' : 'none';
 }
 
-document.getElementById('lib-save').addEventListener('click', async () => {
+document.getElementById('lib-save').addEventListener('click', () => withBtn(document.getElementById('lib-save'), async () => {
   const name = document.getElementById('lib-name').value.trim();
   const dur = parseDuration(document.getElementById('lib-dur').value);
   const gif = document.getElementById('lib-gif').value.trim();
@@ -471,7 +478,7 @@ document.getElementById('lib-save').addEventListener('click', async () => {
     popup('✅ Ejercicio guardado en tu biblioteca.');
     renderLibrary();
   } catch (err) { popup('❌ ' + err.message, false); }
-});
+}));
 
 libList.addEventListener('click', e => {
   const pick = e.target.closest('[data-lib-pick]');
@@ -539,7 +546,7 @@ document.getElementById('lib-add-sel').addEventListener('click', () => {
   popup(`✅ "${entry.name}" agregado. Ábrelo en "Crear rutinas" y guarda la rutina.`);
 });
 
-document.getElementById('lib-del-sel').addEventListener('click', async () => {
+document.getElementById('lib-del-sel').addEventListener('click', () => withBtn(document.getElementById('lib-del-sel'), async () => {
   if (!libSelected) return;
   if (!confirm('¿Eliminar este ejercicio de la biblioteca?')) return;
   try {
@@ -551,7 +558,7 @@ document.getElementById('lib-del-sel').addEventListener('click', async () => {
     renderLibrary();
     libResetForm();
   } catch (err) { popup('❌ ' + err.message, false); }
-});
+}));
 libTarget.addEventListener('focus', refreshLibTarget);
 
 // ---------- Edición en el formulario de arriba (Actualizar / Limpiar) ----------
@@ -563,7 +570,7 @@ document.getElementById('lib-clear').addEventListener('click', () => {
   libResetForm();
 });
 
-document.getElementById('lib-update').addEventListener('click', async () => {
+document.getElementById('lib-update').addEventListener('click', () => withBtn(document.getElementById('lib-update'), async () => {
   const entry = window.LIBRARY.find(x => x.id === libEditingId);
   if (!entry) { libResetForm(); return; }
   const name = document.getElementById('lib-name').value.trim();
@@ -585,7 +592,7 @@ document.getElementById('lib-update').addEventListener('click', async () => {
     libResetForm();
     popup('✅ Ejercicio actualizado.');
   } catch (err) { popup('❌ ' + err.message, false); }
-});
+}));
 
 // ---------- Modal: agregar desde biblioteca (buscador + 10 por página) ----------
 const LIBM_PER_PAGE = 10;
@@ -713,6 +720,8 @@ sectionsEl.addEventListener('click', e => {
     };
     libStatus.textContent = '';
     popup('Guardando en biblioteca…');
+    if (saveLib.disabled) return;
+    saveLib.disabled = true;
     fetch('/library', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
@@ -726,7 +735,8 @@ sectionsEl.addEventListener('click', e => {
         popup(`✅ "${saved.name}" guardado en tu biblioteca.`);
         renderLibrary();
       })
-      .catch(err => { popup('❌ ' + err.message, false); });
+      .catch(err => { popup('❌ ' + err.message, false); })
+      .finally(() => { saveLib.disabled = false; });
     return;
   }
   const gifMode = e.target.closest('[data-gifmode]');
@@ -833,7 +843,7 @@ sectionsEl.addEventListener('change', e => {
   }
 });
 
-document.getElementById('btn-save').addEventListener('click', async () => {
+document.getElementById('btn-save').addEventListener('click', () => withBtn(document.getElementById('btn-save'), async () => {
   const r = currentRoutine();
   if (!r) return;
   const name = nameEl.value.trim();
@@ -899,7 +909,7 @@ document.getElementById('btn-save').addEventListener('click', async () => {
   } catch (err) {
     popup('❌ ' + err.message, false);
   }
-});
+}));
 
 function refreshTimerOptions() {
   const sel = document.getElementById('timer-select');
@@ -1036,7 +1046,7 @@ function startElement(i) {
   tickId = setInterval(tick, 200);
 }
 
-document.getElementById('timer-start').addEventListener('click', async () => {
+document.getElementById('timer-start').addEventListener('click', () => withBtn(document.getElementById('timer-start'), async () => {
   const id = timerSelect.value;
   if (!id) { popup('Selecciona una rutina primero.', false); return; }
   try {
@@ -1049,7 +1059,7 @@ document.getElementById('timer-start').addEventListener('click', async () => {
     showRun();
     startElement(0);
   } catch (e) { popup(e.message, false); }
-});
+}));
 
 document.getElementById('timer-pause').addEventListener('click', (e) => {
   if (!queue.length) return;

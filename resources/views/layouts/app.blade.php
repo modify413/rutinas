@@ -18,6 +18,7 @@ a{color:inherit}
 .btn:hover{background:var(--accent2)}.btn.secondary{background:var(--card2);color:var(--text);border:1px solid var(--line)}
 .btn.secondary:hover{border-color:var(--accent)}.btn.danger{background:var(--danger);color:#fff}.btn.warn{background:#e5e5e5;color:#000}.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
 .btn.small{padding:6px 10px;font-size:.85rem;border-radius:8px}
+.btn:disabled{opacity:.55;cursor:wait}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
 input,select,textarea{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #333;background:#000;color:var(--text)}
 input:focus,select:focus{outline:1px solid var(--accent);border-color:var(--accent)}
@@ -158,5 +159,14 @@ body{overflow-x:hidden}
   @yield('content')
 </div>
 @yield('scripts')
+<script>
+// Anti doble-submit global: el primer envío deshabilita los botones del formulario
+document.addEventListener('submit', function (e) {
+  const f = e.target;
+  if (f.dataset.submitted) { e.preventDefault(); return; }
+  f.dataset.submitted = '1';
+  f.querySelectorAll('button[type=submit], input[type=submit]').forEach(b => { b.disabled = true; });
+});
+</script>
 </body>
 </html>

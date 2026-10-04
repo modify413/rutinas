@@ -222,5 +222,8 @@ class WorkoutTest extends TestCase
         $dash->assertSee('Biblioteca', false);
         $dash->assertSee('+ Agregar desde biblioteca', false);
         $dash->assertSee('id="lib-modal"', false);
+        // Guard anti doble-submit presente
+        $dash->assertSee('dataset.submitted', false);
+        $dash->assertSee('withBtn', false);
     }
 }
