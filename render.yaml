@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: rutinas-app
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter # el disco persistente requiere plan de pago
+    disk:
+      name: sqlite-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_NAME
+        value: Rutinas
+      - key: DB_CONNECTION
+        value: sqlite
+      - key: DB_DATABASE
+        value: /data/database.sqlite
+      - key: SESSION_DRIVER
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: LOG_CHANNEL
+        value: errorlog
