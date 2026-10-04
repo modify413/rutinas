@@ -4,13 +4,14 @@
 
 @section('content')
 @php
-  $selectedId = (int) request('routine_id', $routines->first()?->id ?? 0);
+  $selectedId = (int) request('routine_id', 0);
 @endphp
 
 <div class="dash">
   <aside class="sidebar" id="sidebar">
     <button class="tab-btn" data-tab="rutinas"><span class="ico">📝</span><span class="lbl">Crear rutinas</span></button>
     <button class="tab-btn" data-tab="timer"><span class="ico">⏱️</span><span class="lbl">Timer</span></button>
+    <button class="tab-btn" data-tab="biblioteca"><span class="ico">📚</span><span class="lbl">Biblioteca</span></button>
     <button class="tab-btn" data-tab="config"><span class="ico">⚙️</span><span class="lbl">Configuración</span></button>
   </aside>
   <div class="dash-main">
@@ -18,32 +19,36 @@
 {{-- PESTAÑA 1: RUTINAS --}}
 <div class="tab-panel" id="panel-rutinas">
   <div class="grid2">
-    <div class="card">
-      <h3 style="margin-top:0">Mis rutinas</h3>
-      <div class="routine-list" id="routine-list">
-        @forelse($routines as $r)
-          <div class="routine-item {{ $r->id === $selectedId ? 'selected' : '' }}" data-id="{{ $r->id }}">
-            <span><strong>{{ $r->name }}</strong><br><small class="muted">{{ $r->sections->sum(fn($s) => $s->items->sum('duration_seconds')) }}s · {{ $r->sections->count() }} sec.</small></span>
-          </div>
-        @empty
-          <p class="muted">Aún no tienes rutinas. Crea la primera abajo.</p>
-        @endforelse
+    <div>
+      <div class="card">
+        <h3 style="margin-top:0">+ Nueva rutina</h3>
+        <form method="POST" action="{{ route('routines.store') }}">
+          @csrf
+          <label for="new-name">Nombre</label>
+          <input id="new-name" name="name" placeholder="Ej: Rutina de pecho" required maxlength="255">
+          <div style="height:8px"></div>
+          <button class="btn" style="width:100%" type="submit">Crear rutina</button>
+        </form>
       </div>
-      <hr style="border-color:#2b3b52;margin:14px 0">
-      <form method="POST" action="{{ route('routines.store') }}">
-        @csrf
-        <label for="new-name">+ Nueva rutina</label>
-        <input id="new-name" name="name" placeholder="Ej: Rutina de pecho" required maxlength="255">
-        <div style="height:8px"></div>
-        <button class="btn" style="width:100%" type="submit">Crear rutina</button>
-      </form>
+      <div class="card" style="margin-top:16px">
+        <h3 style="margin-top:0">Mis rutinas</h3>
+        <div class="routine-list" id="routine-list">
+          @forelse($routines as $r)
+            <div class="routine-item {{ $r->id === $selectedId ? 'selected' : '' }}" data-id="{{ $r->id }}">
+              <span><strong>{{ $r->name }}</strong><br><small class="muted">{{ $r->sections->sum(fn($s) => $s->items->sum('duration_seconds') * max(1, (int) $s->reps)) }}s · {{ $r->sections->count() }} sec.</small></span>
+            </div>
+          @empty
+            <p class="muted">Aún no tienes rutinas. Crea la primera arriba.</p>
+          @endforelse
+        </div>
+      </div>
     </div>
 
-    <div class="card">
-      <div id="editor-empty" style="display:none">
-        <p class="muted">Selecciona una rutina de la lista para editarla.</p>
+    <div>
+      <div class="card" id="editor-empty">
+        <p class="muted" style="margin:0">👈 Crea una rutina nueva o elige una de la lista para editarla aquí, en el centro.</p>
       </div>
-      <div id="editor-box">
+      <div class="card" id="editor-box" style="display:none">
         <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
           <div style="flex:1;min-width:200px">
             <label for="routine-name">Nombre de la rutina</label>
@@ -65,7 +70,7 @@
           <button class="btn" id="btn-save" type="button">💾 Guardar rutina</button>
         </div>
         <p class="muted" id="editor-status"></p>
-        <p class="muted">Duración: escribe segundos (<b>90</b>) o minutos:segundos (<b>1:30</b>). El total se calcula en tiempo real e incluye ejercicios y descansos.</p>
+        <p class="muted">Duración: escribe segundos (<b>90</b>) o minutos:segundos (<b>1:30</b>). El total incluye ejercicios, descansos y repeticiones (×N) de cada sección.</p>
       </div>
     </div>
   </div>
@@ -127,7 +132,65 @@
   </div>
 </div>
 
-{{-- PESTAÑA 3: CONFIG --}}
+{{-- PESTAÑA 3: BIBLIOTECA --}}
+<div class="tab-panel" id="panel-biblioteca">
+  <div class="card">
+    <h3 style="margin-top:0">📚 Mi biblioteca de ejercicios</h3>
+    <p class="muted" style="margin-top:0">Crea tus ejercicios con su GIF y agrégalos con un clic a cualquier sección de la rutina elegida.</p>
+    <div class="row">
+      <div style="flex:2;min-width:150px">
+        <label for="lib-name">Nombre</label>
+        <input id="lib-name" maxlength="255" placeholder="Ej: Flexiones">
+      </div>
+      <div style="flex:1;min-width:100px">
+        <label for="lib-dur">Tiempo (s o m:ss)</label>
+        <input id="lib-dur" placeholder="0:30">
+      </div>
+    </div>
+    <label for="lib-gif">GIF (URL directa .gif, opcional)</label>
+    <input id="lib-gif" placeholder="https://...gif" maxlength="2048">
+    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn small" id="lib-save" type="button">💾 Guardar en biblioteca</button>
+      <button class="btn small" id="lib-update" type="button" style="display:none">Actualizar</button>
+      <button class="btn small secondary" id="lib-clear" type="button" style="display:none">Limpiar</button>
+    </div>
+    <hr style="border-color:var(--line);margin:14px 0">
+    <div id="lib-list" class="lib-grid"></div>
+    <div id="lib-actions" style="display:none;margin-top:10px">
+      <label for="lib-target">Agregar a la sección de la rutina elegida</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select id="lib-target" style="flex:1;min-width:160px"></select>
+        <button class="btn small" id="lib-add-sel" type="button">+ Agregar</button>
+        <button class="btn small danger" id="lib-del-sel" type="button">Eliminar</button>
+      </div>
+    </div>
+    <p class="muted" id="lib-status" style="margin-bottom:0"></p>
+  </div>
+</div>
+
+{{-- MODAL: agregar desde biblioteca --}}
+<div class="modal-scrim" id="lib-modal">
+  <div class="modal card">
+    <h3 style="margin-top:0">📚 Agregar desde biblioteca</h3>
+    <label for="libm-search">Buscar por nombre</label>
+    <input id="libm-search" placeholder="Ej: flexiones" maxlength="255" autocomplete="off">
+    <div id="libm-list" class="lib-grid"></div>
+    <div style="display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:12px;flex-wrap:wrap">
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn small secondary" id="libm-prev" type="button">←</button>
+        <span class="muted" id="libm-page"></span>
+        <button class="btn small secondary" id="libm-next" type="button">→</button>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn small secondary" id="libm-close" type="button">Cancelar</button>
+        <button class="btn small" id="libm-add" type="button">+ Agregar a la sección</button>
+      </div>
+    </div>
+    <p class="muted" id="libm-status" style="margin-bottom:0"></p>
+  </div>
+</div>
+
+{{-- PESTAÑA 4: CONFIG --}}
 <div class="tab-panel" id="panel-config">
   <div class="grid2">
     <div class="card">
@@ -163,6 +226,7 @@
 @section('scripts')
 <script>
 window.ROUTINES = @json($routines->keyBy('id'));
+window.LIBRARY = @json($library->values());
 window.SELECTED_ID = {{ $selectedId }};
 window.INIT_TAB = @json(request('tab', 'rutinas'));
 const CSRF = @json(csrf_token());
@@ -185,16 +249,17 @@ if (navScrim) navScrim.addEventListener('click', () => document.body.classList.r
 
 // ---------- Tabs ----------
 const tabBtns = document.querySelectorAll('.tab-btn');
-const panels = { rutinas: document.getElementById('panel-rutinas'), timer: document.getElementById('panel-timer'), config: document.getElementById('panel-config') };
+const panels = { rutinas: document.getElementById('panel-rutinas'), timer: document.getElementById('panel-timer'), biblioteca: document.getElementById('panel-biblioteca'), config: document.getElementById('panel-config') };
 function showTab(name) {
   tabBtns.forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   Object.entries(panels).forEach(([k, el]) => el.classList.toggle('active', k === name));
   try { localStorage.setItem('app_tab', name); } catch(e) {}
   document.body.classList.remove('nav-open');
   document.dispatchEvent(new CustomEvent('dashboard-tab', { detail: name }));
+  if (name === 'biblioteca') { try { renderLibrary(); refreshLibTarget(); } catch(e) {} }
 }
 tabBtns.forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
-showTab(['rutinas','timer','config'].includes(window.INIT_TAB) ? window.INIT_TAB : (localStorage.getItem('app_tab') || 'rutinas'));
+showTab(['rutinas','timer','biblioteca','config'].includes(window.INIT_TAB) ? window.INIT_TAB : (localStorage.getItem('app_tab') || 'rutinas'));
 
 // ---------- Helpers duración ----------
 function parseDuration(str) {
@@ -226,6 +291,22 @@ function fmtClock(total) {
 }
 function esc(s){ return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+// Todas las alertas como popup (toast superior, se oculta solo)
+function popup(msg, ok = true) {
+  let wrap = document.getElementById('toast-wrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'toast-wrap';
+    wrap.className = 'toast-wrap';
+    document.body.appendChild(wrap);
+  }
+  const t = document.createElement('div');
+  t.className = 'toast' + (ok ? '' : ' err');
+  t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 350); }, 3500);
+}
+
 // ---------- Editor de rutinas ----------
 let selectedId = window.SELECTED_ID || null;
 const sectionsEl = document.getElementById('sections');
@@ -236,9 +317,17 @@ const deleteForm = document.getElementById('delete-form');
 
 function currentRoutine() { return selectedId ? window.ROUTINES[selectedId] : null; }
 
+function sectionReps(sec) {
+  const v = parseInt(sec.querySelector('[data-reps]')?.value, 10);
+  return Math.min(99, Math.max(1, v || 1));
+}
+
 function recalcTotal() {
   let total = 0;
-  sectionsEl.querySelectorAll('[data-dur]').forEach(inp => { total += parseDuration(inp.value); });
+  sectionsEl.querySelectorAll('[data-section]').forEach(sec => {
+    const reps = sectionReps(sec);
+    sec.querySelectorAll('[data-dur]').forEach(inp => { total += parseDuration(inp.value) * reps; });
+  });
   totalEl.textContent = fmt(total);
 }
 
@@ -274,6 +363,7 @@ function itemHtml(item, sIdx, iIdx) {
     <div class="item-actions">
       <button type="button" class="btn small secondary" data-move-item="-1">↑</button>
       <button type="button" class="btn small secondary" data-move-item="1">↓</button>
+      ${!isRest ? '<button type="button" class="btn small secondary" data-save-lib title="Guardar este ejercicio en mi biblioteca">📚</button>' : ''}
       <button type="button" class="btn small danger" data-del-item>Eliminar</button>
     </div>
   </div>`;
@@ -300,6 +390,8 @@ function renderEditor() {
     div.innerHTML = `
       <div class="section-head">
         <input data-title value="${esc(s.title || ('Sección ' + (sIdx+1)))}" maxlength="255">
+        <span class="muted" title="Veces que se repite la sección">×</span>
+        <input data-reps type="number" min="1" max="99" value="${Math.min(99, Math.max(1, parseInt(s.reps, 10) || 1))}" title="Repeticiones de la sección" style="width:60px;flex:none">
         <button type="button" class="btn small secondary" data-move-section="-1">↑</button>
         <button type="button" class="btn small secondary" data-move-section="1">↓</button>
         <button type="button" class="btn small danger" data-del-section>✕</button>
@@ -308,6 +400,7 @@ function renderEditor() {
       <div class="row">
         <button type="button" class="btn small secondary" data-add="exercise">+ Agregar ejercicio</button>
         <button type="button" class="btn small secondary" data-add="rest">+ Agregar descanso</button>
+        <button type="button" class="btn small secondary" data-lib-open>+ Agregar desde biblioteca</button>
       </div>`;
     const itemsBox = div.querySelector('[data-items]');
     (s.items || []).forEach(it => {
@@ -320,7 +413,250 @@ function renderEditor() {
     sectionsEl.appendChild(div);
   });
   recalcTotal();
+  renderLibrary();
+  refreshLibTarget();
 }
+
+// ---------- Biblioteca de ejercicios (creada por el usuario) ----------
+const libList = document.getElementById('lib-list');
+const libTarget = document.getElementById('lib-target');
+const libStatus = document.getElementById('lib-status');
+
+function refreshLibTarget() {
+  const secs = [...sectionsEl.querySelectorAll('[data-section]')];
+  libTarget.innerHTML = secs.length
+    ? secs.map((s, i) => {
+        const t = s.querySelector('[data-title]').value.trim() || ('Sección ' + (i + 1));
+        const reps = sectionReps(s);
+        return `<option value="${i}">Sección ${i + 1}: ${esc(t)}${reps > 1 ? ' (×' + reps + ')' : ''}</option>`;
+      }).join('')
+    : '<option value="">(elige una rutina en "Crear rutinas")</option>';
+}
+
+let libSelected = null;
+
+function libBtnHtml(entry, selected) {
+  return `<button type="button" class="lib-btn${selected ? ' selected' : ''}" data-lib-pick="${entry.id}" title="${esc(entry.name)} · ${fmt(entry.duration_seconds)}">${esc(entry.name)}</button>`;
+}
+
+function renderLibrary() {
+  libList.innerHTML = window.LIBRARY.length
+    ? window.LIBRARY.map(e => libBtnHtml(e, e.id === libSelected)).join('')
+    : '<p class="muted" style="margin:0">Biblioteca vacía. Guarda tu primer ejercicio arriba.</p>';
+  if (!window.LIBRARY.find(x => x.id === libSelected)) libSelected = null;
+  document.getElementById('lib-actions').style.display = libSelected ? '' : 'none';
+}
+
+document.getElementById('lib-save').addEventListener('click', async () => {
+  const name = document.getElementById('lib-name').value.trim();
+  const dur = parseDuration(document.getElementById('lib-dur').value);
+  const gif = document.getElementById('lib-gif').value.trim();
+  if (!name) { popup('Ponle un nombre al ejercicio.', false); return; }
+  if (!dur || dur < 1) { popup('Pon una duración válida (ej: 30 o 1:30).', false); return; }
+  popup('Guardando en biblioteca…');
+  try {
+    const res = await fetch('/library', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
+      body: JSON.stringify({ name, duration_seconds: dur, gif_url: gif || null, gif_path: null }),
+    });
+    if (!res.ok) throw new Error('Error ' + res.status);
+    const saved = await res.json();
+    window.LIBRARY.push(saved);
+    window.LIBRARY.sort((a, b) => a.name.localeCompare(b.name));
+    document.getElementById('lib-name').value = '';
+    document.getElementById('lib-dur').value = '';
+    document.getElementById('lib-gif').value = '';
+    libStatus.textContent = '';
+    popup('✅ Ejercicio guardado en tu biblioteca.');
+    renderLibrary();
+  } catch (err) { popup('❌ ' + err.message, false); }
+});
+
+libList.addEventListener('click', e => {
+  const pick = e.target.closest('[data-lib-pick]');
+  if (!pick) return;
+  const id = +pick.dataset.libPick;
+  libSelected = (libSelected === id) ? null : id; // solo 1 a la vez
+  renderLibrary();
+  const entry = window.LIBRARY.find(x => x.id === libSelected);
+  if (entry) {
+    // Rellenar el formulario de arriba y pasar a modo edición
+    libEditingId = entry.id;
+    document.getElementById('lib-name').value = entry.name || '';
+    document.getElementById('lib-dur').value = fmt(entry.duration_seconds ?? 30);
+    document.getElementById('lib-gif').value = entry.gif_url || '';
+    libFormMode();
+  } else {
+    libResetForm();
+  }
+});
+
+function libFormMode() {
+  const editing = libEditingId !== null;
+  document.getElementById('lib-save').style.display = editing ? 'none' : '';
+  document.getElementById('lib-update').style.display = editing ? '' : 'none';
+  document.getElementById('lib-clear').style.display = editing ? '' : 'none';
+}
+
+function libResetForm() {
+  libEditingId = null;
+  document.getElementById('lib-name').value = '';
+  document.getElementById('lib-dur').value = '';
+  document.getElementById('lib-gif').value = '';
+  libFormMode();
+}
+
+function libTargetBox() {
+  if (!currentRoutine()) {
+    popup('Elige primero una rutina en "Crear rutinas".', false);
+    showTab('rutinas');
+    return null;
+  }
+  const secs = [...sectionsEl.querySelectorAll('[data-section]')];
+  const box = secs[+libTarget.value] ? secs[+libTarget.value].querySelector('[data-items]') : null;
+  if (!box) {
+    popup('La rutina no tiene esa sección. Revisa las secciones en "Crear rutinas".', false);
+    showTab('rutinas');
+    return null;
+  }
+  return box;
+}
+
+function libAddEntry(entry, box) {
+  const w = document.createElement('div');
+  w.innerHTML = itemHtml({ type: 'exercise', name: entry.name, duration_seconds: entry.duration_seconds, duration_display: fmt(entry.duration_seconds), gif_url: entry.gif_url, gif_path: entry.gif_path });
+  box.appendChild(w.firstElementChild);
+  recalcTotal();
+}
+
+document.getElementById('lib-add-sel').addEventListener('click', () => {
+  const entry = window.LIBRARY.find(x => x.id === libSelected);
+  if (!entry) return;
+  const box = libTargetBox();
+  if (!box) return;
+  libAddEntry(entry, box);
+  popup(`✅ "${entry.name}" agregado. Ábrelo en "Crear rutinas" y guarda la rutina.`);
+});
+
+document.getElementById('lib-del-sel').addEventListener('click', async () => {
+  if (!libSelected) return;
+  if (!confirm('¿Eliminar este ejercicio de la biblioteca?')) return;
+  try {
+    const res = await fetch(`/library/${libSelected}`, { method: 'DELETE', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF } });
+    if (!res.ok) throw new Error('Error ' + res.status);
+    window.LIBRARY = window.LIBRARY.filter(x => x.id !== libSelected);
+    libSelected = null;
+    popup('Ejercicio eliminado de la biblioteca.');
+    renderLibrary();
+    libResetForm();
+  } catch (err) { popup('❌ ' + err.message, false); }
+});
+libTarget.addEventListener('focus', refreshLibTarget);
+
+// ---------- Edición en el formulario de arriba (Actualizar / Limpiar) ----------
+let libEditingId = null;
+
+document.getElementById('lib-clear').addEventListener('click', () => {
+  libSelected = null;
+  renderLibrary();
+  libResetForm();
+});
+
+document.getElementById('lib-update').addEventListener('click', async () => {
+  const entry = window.LIBRARY.find(x => x.id === libEditingId);
+  if (!entry) { libResetForm(); return; }
+  const name = document.getElementById('lib-name').value.trim();
+  const dur = parseDuration(document.getElementById('lib-dur').value);
+  const gif = document.getElementById('lib-gif').value.trim();
+  if (!name) { popup('El nombre es obligatorio.', false); return; }
+  if (!dur || dur < 1) { popup('Pon una duración válida (ej: 30 o 1:30).', false); return; }
+  try {
+    const res = await fetch(`/library/${entry.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
+      body: JSON.stringify({ name, duration_seconds: dur, gif_url: gif || null, gif_path: entry.gif_path }),
+    });
+    if (!res.ok) throw new Error('Error ' + res.status);
+    const saved = await res.json();
+    Object.assign(entry, saved);
+    window.LIBRARY.sort((a, b) => a.name.localeCompare(b.name));
+    renderLibrary();
+    libResetForm();
+    popup('✅ Ejercicio actualizado.');
+  } catch (err) { popup('❌ ' + err.message, false); }
+});
+
+// ---------- Modal: agregar desde biblioteca (buscador + 10 por página) ----------
+const LIBM_PER_PAGE = 10;
+let libModalSection = null, libmPage = 0, libmQuery = '', libmSelected = null;
+
+function filteredLibrary() {
+  const q = libmQuery.trim().toLowerCase();
+  return window.LIBRARY.filter(x => !q || x.name.toLowerCase().includes(q));
+}
+
+function renderLibModal() {
+  const all = filteredLibrary();
+  const pages = Math.max(1, Math.ceil(all.length / LIBM_PER_PAGE));
+  libmPage = Math.min(Math.max(0, libmPage), pages - 1);
+  const slice = all.slice(libmPage * LIBM_PER_PAGE, libmPage * LIBM_PER_PAGE + LIBM_PER_PAGE);
+  document.getElementById('libm-list').innerHTML = slice.length
+    ? slice.map(e => `<button type="button" class="lib-btn${e.id === libmSelected ? ' selected' : ''}" data-libm-pick="${e.id}" title="${esc(e.name)} · ${fmt(e.duration_seconds)}">${esc(e.name)}</button>`).join('')
+    : '<p class="muted">Sin resultados.</p>';
+  document.getElementById('libm-page').textContent = `Página ${libmPage + 1} de ${pages}`;
+  document.getElementById('libm-prev').disabled = libmPage === 0;
+  document.getElementById('libm-next').disabled = libmPage >= pages - 1;
+}
+
+function openLibModal(sec) {
+  libModalSection = sec;
+  libmPage = 0; libmSelected = null; libmQuery = '';
+  document.getElementById('libm-search').value = '';
+  document.getElementById('libm-status').textContent = '';
+  renderLibModal();
+  document.getElementById('lib-modal').classList.add('open');
+}
+
+function closeLibModal() {
+  document.getElementById('lib-modal').classList.remove('open');
+  libModalSection = null;
+}
+
+document.getElementById('libm-search').addEventListener('input', e => {
+  libmQuery = e.target.value; libmPage = 0; renderLibModal();
+});
+document.getElementById('libm-prev').addEventListener('click', () => { libmPage--; renderLibModal(); });
+document.getElementById('libm-next').addEventListener('click', () => { libmPage++; renderLibModal(); });
+document.getElementById('libm-close').addEventListener('click', closeLibModal);
+document.getElementById('lib-modal').addEventListener('click', e => {
+  if (e.target.id === 'lib-modal') closeLibModal();
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (document.getElementById('lib-modal').classList.contains('open')) closeLibModal();
+});
+document.getElementById('libm-list').addEventListener('click', e => {
+  const pick = e.target.closest('[data-libm-pick]');
+  if (!pick) return;
+  const id = +pick.dataset.libmPick;
+  libmSelected = (libmSelected === id) ? null : id; // solo 1 a la vez
+  renderLibModal();
+});
+document.getElementById('libm-add').addEventListener('click', () => {
+  const entry = window.LIBRARY.find(x => x.id === libmSelected);
+  if (!entry) {
+    popup('Selecciona un ejercicio primero.', false);
+    return;
+  }
+  if (!libModalSection || !libModalSection.isConnected) {
+    popup('La sección ya no existe.', false);
+    return;
+  }
+  libAddEntry(entry, libModalSection.querySelector('[data-items]'));
+  closeLibModal();
+  popup(`✅ "${entry.name}" agregado a la sección. No olvides guardar la rutina.`);
+});
 
 document.getElementById('routine-list').addEventListener('click', e => {
   const el = e.target.closest('.routine-item');
@@ -334,6 +670,8 @@ document.getElementById('btn-add-section').addEventListener('click', () => {
   div.innerHTML = `
     <div class="section-head">
       <input data-title value="Sección ${n}" maxlength="255">
+      <span class="muted" title="Veces que se repite la sección">×</span>
+      <input data-reps type="number" min="1" max="99" value="1" title="Repeticiones de la sección" style="width:60px;flex:none">
       <button type="button" class="btn small secondary" data-move-section="-1">↑</button>
       <button type="button" class="btn small secondary" data-move-section="1">↓</button>
       <button type="button" class="btn small danger" data-del-section>✕</button>
@@ -342,9 +680,11 @@ document.getElementById('btn-add-section').addEventListener('click', () => {
     <div class="row">
       <button type="button" class="btn small secondary" data-add="exercise">+ Agregar ejercicio</button>
       <button type="button" class="btn small secondary" data-add="rest">+ Agregar descanso</button>
+      <button type="button" class="btn small secondary" data-lib-open>+ Agregar desde biblioteca</button>
     </div>`;
   sectionsEl.appendChild(div);
   recalcTotal();
+  refreshLibTarget();
 });
 
 sectionsEl.addEventListener('click', e => {
@@ -358,8 +698,37 @@ sectionsEl.addEventListener('click', e => {
     recalcTotal();
     return;
   }
-  if (e.target.closest('[data-del-section]')) { e.target.closest('[data-section]').remove(); recalcTotal(); return; }
+  if (e.target.closest('[data-del-section]')) { e.target.closest('[data-section]').remove(); recalcTotal(); refreshLibTarget(); return; }
   if (e.target.closest('[data-del-item]')) { e.target.closest('[data-item]').remove(); recalcTotal(); return; }
+  const libOpen = e.target.closest('[data-lib-open]');
+  if (libOpen) { openLibModal(libOpen.closest('[data-section]')); return; }
+  const saveLib = e.target.closest('[data-save-lib]');
+  if (saveLib) {
+    const item = saveLib.closest('[data-item]');
+    const payload = {
+      name: item.querySelector('[data-name]').value.trim() || 'Ejercicio',
+      duration_seconds: Math.max(1, parseDuration(item.querySelector('[data-dur]').value) || 30),
+      gif_url: item.querySelector('[data-gif]').value.trim() || null,
+      gif_path: item.querySelector('[data-gifpath]').value.trim() || null,
+    };
+    libStatus.textContent = '';
+    popup('Guardando en biblioteca…');
+    fetch('/library', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
+      body: JSON.stringify(payload),
+    })
+      .then(async res => {
+        if (!res.ok) throw new Error('Error ' + res.status);
+        const saved = await res.json();
+        window.LIBRARY.push(saved);
+        window.LIBRARY.sort((a, b) => a.name.localeCompare(b.name));
+        popup(`✅ "${saved.name}" guardado en tu biblioteca.`);
+        renderLibrary();
+      })
+      .catch(err => { popup('❌ ' + err.message, false); });
+    return;
+  }
   const gifMode = e.target.closest('[data-gifmode]');
   if (gifMode) {
     const item = gifMode.closest('[data-item]');
@@ -468,11 +837,11 @@ document.getElementById('btn-save').addEventListener('click', async () => {
   const r = currentRoutine();
   if (!r) return;
   const name = nameEl.value.trim();
-  if (!name) { statusEl.textContent = 'El nombre de la rutina es obligatorio.'; return; }
+  if (!name) { popup('El nombre de la rutina es obligatorio.', false); return; }
   // Subir primero los GIF elegidos desde la PC
   const pending = [...sectionsEl.querySelectorAll('[data-item]')]
     .filter(it => it._gifFile && it.querySelector('[data-type]').value === 'exercise');
-  if (pending.length) statusEl.textContent = `Subiendo ${pending.length} GIF(s)…`;
+  if (pending.length) popup(`Subiendo ${pending.length} GIF(s)…`);
   for (const it of pending) {
     const fd = new FormData();
     fd.append('gif', it._gifFile);
@@ -488,13 +857,14 @@ document.getElementById('btn-save').addEventListener('click', async () => {
       it.querySelector('[data-gif]').value = '';
       it._gifFile = null;
     } catch (err) {
-      statusEl.textContent = '❌ ' + err.message;
+      popup('❌ ' + err.message, false);
       return;
     }
   }
   const sections = [...sectionsEl.querySelectorAll('[data-section]')].map(sec => ({
     id: sec.dataset.sid ? +sec.dataset.sid : null,
     title: sec.querySelector('[data-title]').value.trim() || 'Sección',
+    reps: sectionReps(sec),
     items: [...sec.querySelectorAll('[data-item]')].map(it => {
       const type = it.querySelector('[data-type]').value;
       let nm = it.querySelector('[data-name]').value.trim();
@@ -509,7 +879,6 @@ document.getElementById('btn-save').addEventListener('click', async () => {
       };
     }),
   }));
-  statusEl.textContent = 'Guardando…';
   try {
     const res = await fetch(`/routines/${r.id}`, {
       method: 'PUT',
@@ -525,10 +894,10 @@ document.getElementById('btn-save').addEventListener('click', async () => {
     window.ROUTINES[saved.id] = saved;
     selectedId = saved.id;
     renderEditor();
-    statusEl.textContent = '✅ Rutina guardada en SQLite.';
+    popup('✅ Rutina guardada en SQLite.');
     refreshTimerOptions();
   } catch (err) {
-    statusEl.textContent = '❌ ' + err.message;
+    popup('❌ ' + err.message, false);
   }
 });
 
@@ -669,17 +1038,17 @@ function startElement(i) {
 
 document.getElementById('timer-start').addEventListener('click', async () => {
   const id = timerSelect.value;
-  if (!id) { alert('Selecciona una rutina primero.'); return; }
+  if (!id) { popup('Selecciona una rutina primero.', false); return; }
   try {
     const data = await loadRoutine(id);
     queue = data.flat || [];
-    if (!queue.length) { alert('Esta rutina no tiene elementos. Agrega ejercicios en la pestaña Crear rutinas.'); return; }
+    if (!queue.length) { popup('Esta rutina no tiene elementos. Agrega ejercicios en la pestaña Crear rutinas.', false); return; }
     totalRoutine = data.total_seconds || queue.reduce((a, b) => a + b.duration_seconds, 0);
     paused = false;
     document.getElementById('timer-pause').textContent = '⏸ Pausar';
     showRun();
     startElement(0);
-  } catch (e) { alert(e.message); }
+  } catch (e) { popup(e.message, false); }
 });
 
 document.getElementById('timer-pause').addEventListener('click', (e) => {
@@ -717,7 +1086,7 @@ const timerFsBtn = document.getElementById('timer-fs-btn');
 function isFs() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
 async function enterTimerFs() {
   if (!queue.length) {
-    alert('Inicia una rutina primero para usar la pantalla completa.');
+    popup('Inicia una rutina primero para usar la pantalla completa.', false);
     return;
   }
   try {
@@ -754,9 +1123,11 @@ function pauseTimerAuto() {
 document.addEventListener('dashboard-tab', (e) => {
   if (e.detail !== 'timer') pauseTimerAuto();
 });
-// Al ocultar la pestaña del navegador
+// Al pausar, al ocultar la pestaña del navegador
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseTimerAuto();
 });
+// Si se entra directamente a la biblioteca (pestaña recordada), pintarla
+if (panels.biblioteca.classList.contains('active')) { renderLibrary(); refreshLibTarget(); }
 </script>
 @endsection

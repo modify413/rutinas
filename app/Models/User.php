@@ -34,4 +34,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(Routine::class);
     }
+
+    public function libraryExercises()
+    {
+        return $this->hasMany(LibraryExercise::class)->orderBy('name');
+    }
 }

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Section extends Model
 {
-    protected $fillable = ['routine_id', 'title', 'position'];
+    protected $fillable = ['routine_id', 'title', 'position', 'reps'];
 
     public function routine()
     {

@@ -8,7 +8,8 @@ class DashboardController extends Controller
     {
         $user = auth()->user();
         $routines = $user->routines()->with(['sections.items'])->orderBy('created_at')->get();
+        $library = $user->libraryExercises()->orderBy('name')->get();
 
-        return view('dashboard', compact('routines', 'user'));
+        return view('dashboard', compact('routines', 'user', 'library'));
     }
 }

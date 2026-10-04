@@ -21,7 +21,6 @@ class Routine extends Model
     public function totalSeconds(): int
     {
         return (int) $this->sections()->with('items')->get()
-            ->flatMap(fn ($s) => $s->items)
-            ->sum('duration_seconds');
+            ->sum(fn ($s) => $s->items->sum('duration_seconds') * max(1, (int) $s->reps));
     }
 }

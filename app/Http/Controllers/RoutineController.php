@@ -33,6 +33,7 @@ class RoutineController extends Controller
             'sections' => ['sometimes', 'array'],
             'sections.*.id' => ['nullable', 'integer'],
             'sections.*.title' => ['nullable', 'string', 'max:255'],
+            'sections.*.reps' => ['nullable', 'integer', 'min:1', 'max:99'],
             'sections.*.items' => ['sometimes', 'array'],
             'sections.*.items.*.id' => ['nullable', 'integer'],
             'sections.*.items.*.type' => ['required_with:sections.*.items', 'in:exercise,rest'],
@@ -52,15 +53,18 @@ class RoutineController extends Controller
                 if (! empty($sectionInput['id'])) {
                     $section = $routine->sections()->where('id', $sectionInput['id'])->first();
                 }
+                $reps = max(1, min(99, (int) ($sectionInput['reps'] ?? 1)));
                 if (! $section) {
                     $section = $routine->sections()->create([
                         'title' => $sectionInput['title'] ?? ('Sección '.($index + 1)),
                         'position' => $index,
+                        'reps' => $reps,
                     ]);
                 } else {
                     $section->update([
                         'title' => $sectionInput['title'] ?? $section->title,
                         'position' => $index,
+                        'reps' => $reps,
                     ]);
                 }
                 $keepSectionIds[] = $section->id;
@@ -141,19 +145,29 @@ class RoutineController extends Controller
         $this->authorizeRoutine($routine);
         $routine->load(['sections.items']);
 
+        // Las repeticiones se ejecutan por vueltas: primero todas las
+        // secciones, luego se repite la vuelta completa.
+        // Ej: S1×2, S2×2 => S1, S2, S1, S2
+        $maxReps = max(1, (int) $routine->sections->max('reps'));
         $flat = [];
-        foreach ($routine->sections as $section) {
-            foreach ($section->items as $item) {
-                $flat[] = [
-                    'id' => $item->id,
-                    'section' => $section->title,
-                    'type' => $item->type,
-                    'name' => $item->name,
-                    'duration_seconds' => (int) $item->duration_seconds,
-                    'gif_url' => $item->gif_path
-                        ? GifUploadController::temporaryUrl($item->gif_path)
-                        : $item->gif_url,
-                ];
+        for ($r = 1; $r <= $maxReps; $r++) {
+            foreach ($routine->sections as $section) {
+                $reps = max(1, (int) $section->reps);
+                if ($reps < $r) {
+                    continue;
+                }
+                foreach ($section->items as $item) {
+                    $flat[] = [
+                        'id' => $item->id,
+                        'section' => $section->title.($reps > 1 ? " · vuelta {$r}/{$reps}" : ''),
+                        'type' => $item->type,
+                        'name' => $item->name,
+                        'duration_seconds' => (int) $item->duration_seconds,
+                        'gif_url' => $item->gif_path
+                            ? GifUploadController::temporaryUrl($item->gif_path)
+                            : $item->gif_url,
+                    ];
+                }
             }
         }
 
@@ -163,6 +177,7 @@ class RoutineController extends Controller
             'sections' => $routine->sections->map(fn ($s) => [
                 'id' => $s->id,
                 'title' => $s->title,
+                'reps' => max(1, (int) $s->reps),
                 'items' => $s->items->map(fn ($i) => [
                     'id' => $i->id,
                     'type' => $i->type,

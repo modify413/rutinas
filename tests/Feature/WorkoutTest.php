@@ -124,4 +124,103 @@ class WorkoutTest extends TestCase
         $json = $this->getJson("/routines/{$routineId}/json")->assertOk()->json();
         $this->assertArrayHasKey('gif_url', $json['flat'][0]);
     }
+
+    public function test_section_reps_expand_in_timer_and_total(): void
+    {
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+        $this->post('/routines', ['name' => 'Reps']);
+        $routineId = \App\Models\Routine::where('name', 'Reps')->first()->id;
+        $this->putJson("/routines/{$routineId}", [
+            'name' => 'Reps',
+            'sections' => [[
+                'title' => 'Bloque', 'reps' => 3,
+                'items' => [
+                    ['type' => 'exercise', 'name' => 'A', 'duration_seconds' => 10, 'gif_url' => null],
+                    ['type' => 'rest', 'name' => 'D', 'duration_seconds' => 5, 'gif_url' => null],
+                ],
+            ]],
+        ])->assertOk();
+
+        $json = $this->getJson("/routines/{$routineId}/json")->assertOk()->json();
+        // 2 elementos x 3 vueltas = 6, total (10+5)*3 = 45
+        $this->assertCount(6, $json['flat']);
+        $this->assertSame(45, $json['total_seconds']);
+        $this->assertSame('Bloque · vuelta 2/3', $json['flat'][2]['section']);
+        $this->assertSame(['exercise', 'rest', 'exercise', 'rest', 'exercise', 'rest'],
+            array_column($json['flat'], 'type'));
+    }
+
+    public function test_library_crud(): void
+    {
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+
+        $res = $this->postJson('/library', [
+            'name' => 'Flexiones', 'duration_seconds' => 30,
+            'gif_url' => 'https://x/y.gif', 'gif_path' => null,
+        ])->assertCreated();
+        $id = $res->json('id');
+        $this->assertDatabaseHas('library_exercises', ['id' => $id, 'name' => 'Flexiones']);
+
+        $this->postJson('/library', ['name' => '', 'duration_seconds' => 30])->assertStatus(422);
+
+        $this->deleteJson("/library/{$id}")->assertOk();
+        $this->assertDatabaseMissing('library_exercises', ['id' => $id]);
+
+        // Dashboard expone la biblioteca
+        $this->get('/')->assertOk()->assertSee('Mi biblioteca');
+    }
+
+    public function test_library_update(): void
+    {
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+        $id = $this->postJson('/library', [
+            'name' => 'Original', 'duration_seconds' => 30, 'gif_url' => null,
+        ])->assertCreated()->json('id');
+
+        $this->putJson("/library/{$id}", [
+            'name' => 'Editado', 'duration_seconds' => 45, 'gif_url' => 'https://x/z.gif',
+        ])->assertOk();
+        $this->assertDatabaseHas('library_exercises', [
+            'id' => $id, 'name' => 'Editado', 'duration_seconds' => 45,
+        ]);
+
+        $this->putJson("/library/{$id}", ['name' => '', 'duration_seconds' => 45])
+            ->assertStatus(422);
+    }
+
+    public function test_reps_run_round_robin_across_sections(): void
+    {
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+        $this->post('/routines', ['name' => 'Vueltas']);
+        $routineId = \App\Models\Routine::where('name', 'Vueltas')->first()->id;
+        $this->putJson("/routines/{$routineId}", [
+            'name' => 'Vueltas',
+            'sections' => [
+                ['title' => 'S1', 'reps' => 2, 'items' => [
+                    ['type' => 'exercise', 'name' => 'A', 'duration_seconds' => 10, 'gif_url' => null],
+                ]],
+                ['title' => 'S2', 'reps' => 3, 'items' => [
+                    ['type' => 'exercise', 'name' => 'B', 'duration_seconds' => 5, 'gif_url' => null],
+                ]],
+            ],
+        ])->assertOk();
+
+        $json = $this->getJson("/routines/{$routineId}/json")->assertOk()->json();
+        // S1,S2,S1,S2,S2 con total 10*2+5*3 = 35
+        $this->assertSame(['A', 'B', 'A', 'B', 'B'], array_column($json['flat'], 'name'));
+        $this->assertSame(35, $json['total_seconds']);
+        $this->assertSame('S1 · vuelta 2/2', $json['flat'][2]['section']);
+        $this->assertSame('S2 · vuelta 3/3', $json['flat'][4]['section']);
+    }
+
+    public function test_dashboard_hides_editor_until_selection(): void
+    {
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+        // Sin routine_id no hay rutina preseleccionada: el editor queda oculto
+        $dash = $this->get('/')->assertOk();
+        $dash->assertSee('id="editor-empty"', false);
+        $dash->assertSee('Biblioteca', false);
+        $dash->assertSee('+ Agregar desde biblioteca', false);
+        $dash->assertSee('id="lib-modal"', false);
+    }
 }
