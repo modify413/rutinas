@@ -18,6 +18,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/routines', [RoutineController::class, 'store'])->name('routines.store');
     Route::post('/uploads/gif', [GifUploadController::class, 'store'])->name('uploads.gif');
     Route::post('/library', [LibraryExerciseController::class, 'store'])->name('library.store');
+    Route::put('/library/{libraryExercise}', [LibraryExerciseController::class, 'update'])->name('library.update');
     Route::delete('/library/{libraryExercise}', [LibraryExerciseController::class, 'destroy'])->name('library.destroy');
     Route::put('/routines/{routine}', [RoutineController::class, 'update'])->name('routines.update');
     Route::delete('/routines/{routine}', [RoutineController::class, 'destroy'])->name('routines.destroy');

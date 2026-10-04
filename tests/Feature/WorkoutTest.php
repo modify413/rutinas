@@ -170,6 +170,24 @@ class WorkoutTest extends TestCase
         $this->get('/')->assertOk()->assertSee('Mi biblioteca');
     }
 
+    public function test_library_update(): void
+    {
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+        $id = $this->postJson('/library', [
+            'name' => 'Original', 'duration_seconds' => 30, 'gif_url' => null,
+        ])->assertCreated()->json('id');
+
+        $this->putJson("/library/{$id}", [
+            'name' => 'Editado', 'duration_seconds' => 45, 'gif_url' => 'https://x/z.gif',
+        ])->assertOk();
+        $this->assertDatabaseHas('library_exercises', [
+            'id' => $id, 'name' => 'Editado', 'duration_seconds' => 45,
+        ]);
+
+        $this->putJson("/library/{$id}", ['name' => '', 'duration_seconds' => 45])
+            ->assertStatus(422);
+    }
+
     public function test_reps_run_round_robin_across_sections(): void
     {
         $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);

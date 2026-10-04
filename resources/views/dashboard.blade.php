@@ -188,6 +188,23 @@
   </div>
 </div>
 
+{{-- MODAL: editar ejercicio de la biblioteca (solo se guarda con OK) --}}
+<div class="modal-scrim" id="lib-edit-modal">
+  <div class="modal card">
+    <h3 style="margin-top:0">✏️ Editar ejercicio</h3>
+    <label for="libe-name">Nombre</label>
+    <input id="libe-name" maxlength="255">
+    <label for="libe-dur">Tiempo (s o m:ss)</label>
+    <input id="libe-dur" placeholder="0:30">
+    <label for="libe-gif">GIF (URL directa .gif, opcional)</label>
+    <input id="libe-gif" maxlength="2048" placeholder="https://...gif">
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap">
+      <button class="btn small secondary" id="libe-cancel" type="button">Cancelar</button>
+      <button class="btn small" id="libe-ok" type="button">OK · Guardar</button>
+    </div>
+  </div>
+</div>
+
 {{-- PESTAÑA 4: CONFIG --}}
 <div class="tab-panel" id="panel-config">
   <div class="grid2">
@@ -288,6 +305,22 @@ function fmtClock(total) {
   return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
 }
 function esc(s){ return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// Todas las alertas como popup (toast superior, se oculta solo)
+function popup(msg, ok = true) {
+  let wrap = document.getElementById('toast-wrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'toast-wrap';
+    wrap.className = 'toast-wrap';
+    document.body.appendChild(wrap);
+  }
+  const t = document.createElement('div');
+  t.className = 'toast' + (ok ? '' : ' err');
+  t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 350); }, 3500);
+}
 
 // ---------- Editor de rutinas ----------
 let selectedId = window.SELECTED_ID || null;
@@ -433,9 +466,9 @@ document.getElementById('lib-save').addEventListener('click', async () => {
   const name = document.getElementById('lib-name').value.trim();
   const dur = parseDuration(document.getElementById('lib-dur').value);
   const gif = document.getElementById('lib-gif').value.trim();
-  if (!name) { libStatus.textContent = 'Ponle un nombre al ejercicio.'; return; }
-  if (!dur || dur < 1) { libStatus.textContent = 'Pon una duración válida (ej: 30 o 1:30).'; return; }
-  libStatus.textContent = 'Guardando…';
+  if (!name) { popup('Ponle un nombre al ejercicio.', false); return; }
+  if (!dur || dur < 1) { popup('Pon una duración válida (ej: 30 o 1:30).', false); return; }
+  popup('Guardando en biblioteca…');
   try {
     const res = await fetch('/library', {
       method: 'POST',
@@ -449,9 +482,10 @@ document.getElementById('lib-save').addEventListener('click', async () => {
     document.getElementById('lib-name').value = '';
     document.getElementById('lib-dur').value = '';
     document.getElementById('lib-gif').value = '';
-    libStatus.textContent = '✅ Ejercicio guardado en tu biblioteca.';
+    libStatus.textContent = '';
+    popup('✅ Ejercicio guardado en tu biblioteca.');
     renderLibrary();
-  } catch (err) { libStatus.textContent = '❌ ' + err.message; }
+  } catch (err) { popup('❌ ' + err.message, false); }
 });
 
 libList.addEventListener('click', e => {
@@ -460,18 +494,20 @@ libList.addEventListener('click', e => {
   const id = +pick.dataset.libPick;
   libSelected = (libSelected === id) ? null : id; // solo 1 a la vez
   renderLibrary();
+  const entry = window.LIBRARY.find(x => x.id === libSelected);
+  if (entry) openLibEdit(entry);
 });
 
 function libTargetBox() {
   if (!currentRoutine()) {
-    alert('Elige primero una rutina en "Crear rutinas".');
+    popup('Elige primero una rutina en "Crear rutinas".', false);
     showTab('rutinas');
     return null;
   }
   const secs = [...sectionsEl.querySelectorAll('[data-section]')];
   const box = secs[+libTarget.value] ? secs[+libTarget.value].querySelector('[data-items]') : null;
   if (!box) {
-    alert('La rutina no tiene esa sección. Revisa las secciones en "Crear rutinas".');
+    popup('La rutina no tiene esa sección. Revisa las secciones en "Crear rutinas".', false);
     showTab('rutinas');
     return null;
   }
@@ -491,7 +527,7 @@ document.getElementById('lib-add-sel').addEventListener('click', () => {
   const box = libTargetBox();
   if (!box) return;
   libAddEntry(entry, box);
-  libStatus.textContent = `✅ "${entry.name}" agregado. Ábrelo en "Crear rutinas" y guarda la rutina.`;
+  popup(`✅ "${entry.name}" agregado. Ábrelo en "Crear rutinas" y guarda la rutina.`);
 });
 
 document.getElementById('lib-del-sel').addEventListener('click', async () => {
@@ -502,11 +538,56 @@ document.getElementById('lib-del-sel').addEventListener('click', async () => {
     if (!res.ok) throw new Error('Error ' + res.status);
     window.LIBRARY = window.LIBRARY.filter(x => x.id !== libSelected);
     libSelected = null;
-    libStatus.textContent = 'Ejercicio eliminado de la biblioteca.';
+    popup('Ejercicio eliminado de la biblioteca.');
     renderLibrary();
-  } catch (err) { libStatus.textContent = '❌ ' + err.message; }
+  } catch (err) { popup('❌ ' + err.message, false); }
 });
 libTarget.addEventListener('focus', refreshLibTarget);
+
+// ---------- Modal: editar ejercicio (solo se guarda con OK) ----------
+let libEditId = null;
+
+function openLibEdit(entry) {
+  libEditId = entry.id;
+  document.getElementById('libe-name').value = entry.name || '';
+  document.getElementById('libe-dur').value = fmt(entry.duration_seconds ?? 30);
+  document.getElementById('libe-gif').value = entry.gif_url || '';
+  document.getElementById('lib-edit-modal').classList.add('open');
+}
+
+function closeLibEdit() {
+  document.getElementById('lib-edit-modal').classList.remove('open');
+  libEditId = null;
+}
+
+document.getElementById('libe-cancel').addEventListener('click', closeLibEdit);
+document.getElementById('lib-edit-modal').addEventListener('click', e => {
+  if (e.target.id === 'lib-edit-modal') closeLibEdit();
+});
+document.getElementById('libe-ok').addEventListener('click', async () => {
+  const entry = window.LIBRARY.find(x => x.id === libEditId);
+  if (!entry) { closeLibEdit(); return; }
+  const name = document.getElementById('libe-name').value.trim();
+  const dur = parseDuration(document.getElementById('libe-dur').value);
+  const gif = document.getElementById('libe-gif').value.trim();
+  if (!name) { popup('El nombre es obligatorio.', false); return; }
+  if (!dur || dur < 1) { popup('Pon una duración válida (ej: 30 o 1:30).', false); return; }
+  try {
+    const res = await fetch(`/library/${entry.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
+      body: JSON.stringify({ name, duration_seconds: dur, gif_url: gif || null, gif_path: entry.gif_path }),
+    });
+    if (!res.ok) throw new Error('Error ' + res.status);
+    const saved = await res.json();
+    Object.assign(entry, saved);
+    window.LIBRARY.sort((a, b) => a.name.localeCompare(b.name));
+    renderLibrary();
+    renderLibModal();
+    closeLibEdit();
+    popup('✅ Ejercicio actualizado.');
+  } catch (err) { popup('❌ ' + err.message, false); }
+});
 
 // ---------- Modal: agregar desde biblioteca (buscador + 10 por página) ----------
 const LIBM_PER_PAGE = 10;
@@ -554,7 +635,9 @@ document.getElementById('lib-modal').addEventListener('click', e => {
   if (e.target.id === 'lib-modal') closeLibModal();
 });
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && document.getElementById('lib-modal').classList.contains('open')) closeLibModal();
+  if (e.key !== 'Escape') return;
+  if (document.getElementById('lib-modal').classList.contains('open')) closeLibModal();
+  if (document.getElementById('lib-edit-modal').classList.contains('open')) closeLibEdit();
 });
 document.getElementById('libm-list').addEventListener('click', e => {
   const pick = e.target.closest('[data-libm-pick]');
@@ -566,16 +649,16 @@ document.getElementById('libm-list').addEventListener('click', e => {
 document.getElementById('libm-add').addEventListener('click', () => {
   const entry = window.LIBRARY.find(x => x.id === libmSelected);
   if (!entry) {
-    document.getElementById('libm-status').textContent = 'Selecciona un ejercicio primero.';
+    popup('Selecciona un ejercicio primero.', false);
     return;
   }
   if (!libModalSection || !libModalSection.isConnected) {
-    document.getElementById('libm-status').textContent = 'La sección ya no existe.';
+    popup('La sección ya no existe.', false);
     return;
   }
   libAddEntry(entry, libModalSection.querySelector('[data-items]'));
   closeLibModal();
-  statusEl.textContent = `✅ "${entry.name}" agregado a la sección. No olvides guardar la rutina.`;
+  popup(`✅ "${entry.name}" agregado a la sección. No olvides guardar la rutina.`);
 });
 
 document.getElementById('routine-list').addEventListener('click', e => {
@@ -631,7 +714,8 @@ sectionsEl.addEventListener('click', e => {
       gif_url: item.querySelector('[data-gif]').value.trim() || null,
       gif_path: item.querySelector('[data-gifpath]').value.trim() || null,
     };
-    libStatus.textContent = 'Guardando en biblioteca…';
+    libStatus.textContent = '';
+    popup('Guardando en biblioteca…');
     fetch('/library', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
@@ -642,10 +726,10 @@ sectionsEl.addEventListener('click', e => {
         const saved = await res.json();
         window.LIBRARY.push(saved);
         window.LIBRARY.sort((a, b) => a.name.localeCompare(b.name));
-        libStatus.textContent = `✅ "${saved.name}" guardado en tu biblioteca.`;
+        popup(`✅ "${saved.name}" guardado en tu biblioteca.`);
         renderLibrary();
       })
-      .catch(err => { libStatus.textContent = '❌ ' + err.message; });
+      .catch(err => { popup('❌ ' + err.message, false); });
     return;
   }
   const gifMode = e.target.closest('[data-gifmode]');
@@ -756,11 +840,11 @@ document.getElementById('btn-save').addEventListener('click', async () => {
   const r = currentRoutine();
   if (!r) return;
   const name = nameEl.value.trim();
-  if (!name) { statusEl.textContent = 'El nombre de la rutina es obligatorio.'; return; }
+  if (!name) { popup('El nombre de la rutina es obligatorio.', false); return; }
   // Subir primero los GIF elegidos desde la PC
   const pending = [...sectionsEl.querySelectorAll('[data-item]')]
     .filter(it => it._gifFile && it.querySelector('[data-type]').value === 'exercise');
-  if (pending.length) statusEl.textContent = `Subiendo ${pending.length} GIF(s)…`;
+  if (pending.length) popup(`Subiendo ${pending.length} GIF(s)…`);
   for (const it of pending) {
     const fd = new FormData();
     fd.append('gif', it._gifFile);
@@ -776,7 +860,7 @@ document.getElementById('btn-save').addEventListener('click', async () => {
       it.querySelector('[data-gif]').value = '';
       it._gifFile = null;
     } catch (err) {
-      statusEl.textContent = '❌ ' + err.message;
+      popup('❌ ' + err.message, false);
       return;
     }
   }
@@ -798,7 +882,6 @@ document.getElementById('btn-save').addEventListener('click', async () => {
       };
     }),
   }));
-  statusEl.textContent = 'Guardando…';
   try {
     const res = await fetch(`/routines/${r.id}`, {
       method: 'PUT',
@@ -814,10 +897,10 @@ document.getElementById('btn-save').addEventListener('click', async () => {
     window.ROUTINES[saved.id] = saved;
     selectedId = saved.id;
     renderEditor();
-    statusEl.textContent = '✅ Rutina guardada en SQLite.';
+    popup('✅ Rutina guardada en SQLite.');
     refreshTimerOptions();
   } catch (err) {
-    statusEl.textContent = '❌ ' + err.message;
+    popup('❌ ' + err.message, false);
   }
 });
 
@@ -958,17 +1041,17 @@ function startElement(i) {
 
 document.getElementById('timer-start').addEventListener('click', async () => {
   const id = timerSelect.value;
-  if (!id) { alert('Selecciona una rutina primero.'); return; }
+  if (!id) { popup('Selecciona una rutina primero.', false); return; }
   try {
     const data = await loadRoutine(id);
     queue = data.flat || [];
-    if (!queue.length) { alert('Esta rutina no tiene elementos. Agrega ejercicios en la pestaña Crear rutinas.'); return; }
+    if (!queue.length) { popup('Esta rutina no tiene elementos. Agrega ejercicios en la pestaña Crear rutinas.', false); return; }
     totalRoutine = data.total_seconds || queue.reduce((a, b) => a + b.duration_seconds, 0);
     paused = false;
     document.getElementById('timer-pause').textContent = '⏸ Pausar';
     showRun();
     startElement(0);
-  } catch (e) { alert(e.message); }
+  } catch (e) { popup(e.message, false); }
 });
 
 document.getElementById('timer-pause').addEventListener('click', (e) => {
@@ -1006,7 +1089,7 @@ const timerFsBtn = document.getElementById('timer-fs-btn');
 function isFs() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
 async function enterTimerFs() {
   if (!queue.length) {
-    alert('Inicia una rutina primero para usar la pantalla completa.');
+    popup('Inicia una rutina primero para usar la pantalla completa.', false);
     return;
   }
   try {
