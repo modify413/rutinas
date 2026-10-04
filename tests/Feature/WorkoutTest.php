@@ -202,5 +202,7 @@ class WorkoutTest extends TestCase
         $dash = $this->get('/')->assertOk();
         $dash->assertSee('id="editor-empty"', false);
         $dash->assertSee('Biblioteca', false);
+        $dash->assertSee('+ Agregar desde biblioteca', false);
+        $dash->assertSee('id="lib-modal"', false);
     }
 }

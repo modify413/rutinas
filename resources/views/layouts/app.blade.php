@@ -103,6 +103,14 @@ body{overflow-x:hidden}
   .section-head input{flex:1 1 100%}
   .timer-gif{max-height:240px}
 }
+/* ---- Biblioteca: botones estándar + modal ---- */
+.lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:8px}
+.lib-btn{padding:12px 8px;min-height:48px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-weight:700;font-size:.9rem;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lib-btn:hover{border-color:var(--accent)}
+.lib-btn.selected{background:var(--accent);border-color:var(--accent);color:#fff}
+.modal-scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;padding:16px;overflow-y:auto}
+.modal-scrim.open{display:block}
+.modal{max-width:560px;margin:5vh auto;border-top:3px solid var(--accent)}
 /* ---- Pantalla completa del timer: solo se ve el timer ---- */
 #timer-fs{background:var(--card);border-radius:14px}
 #timer-fs:fullscreen{background:#000;border-radius:0;padding:32px 16px;overflow-y:auto;display:flex;flex-direction:column;justify-content:center}

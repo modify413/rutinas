@@ -153,14 +153,38 @@
       <button class="btn small" id="lib-save" type="button">💾 Guardar en biblioteca</button>
     </div>
     <hr style="border-color:var(--line);margin:14px 0">
-    <div class="row">
-      <div style="flex:1;min-width:160px">
-        <label for="lib-target">Agregar a la sección de la rutina elegida</label>
-        <select id="lib-target"></select>
+    <div id="lib-list" class="lib-grid"></div>
+    <div id="lib-actions" style="display:none;margin-top:10px">
+      <label for="lib-target">Agregar a la sección de la rutina elegida</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <select id="lib-target" style="flex:1;min-width:160px"></select>
+        <button class="btn small" id="lib-add-sel" type="button">+ Agregar</button>
+        <button class="btn small danger" id="lib-del-sel" type="button">Eliminar</button>
       </div>
     </div>
-    <div id="lib-list" style="margin-top:8px;display:flex;flex-direction:column;gap:8px"></div>
     <p class="muted" id="lib-status" style="margin-bottom:0"></p>
+  </div>
+</div>
+
+{{-- MODAL: agregar desde biblioteca --}}
+<div class="modal-scrim" id="lib-modal">
+  <div class="modal card">
+    <h3 style="margin-top:0">📚 Agregar desde biblioteca</h3>
+    <label for="libm-search">Buscar por nombre</label>
+    <input id="libm-search" placeholder="Ej: flexiones" maxlength="255" autocomplete="off">
+    <div id="libm-list" class="lib-grid"></div>
+    <div style="display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:12px;flex-wrap:wrap">
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn small secondary" id="libm-prev" type="button">←</button>
+        <span class="muted" id="libm-page"></span>
+        <button class="btn small secondary" id="libm-next" type="button">→</button>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn small secondary" id="libm-close" type="button">Cancelar</button>
+        <button class="btn small" id="libm-add" type="button">+ Agregar a la sección</button>
+      </div>
+    </div>
+    <p class="muted" id="libm-status" style="margin-bottom:0"></p>
   </div>
 </div>
 
@@ -358,6 +382,7 @@ function renderEditor() {
       <div class="row">
         <button type="button" class="btn small secondary" data-add="exercise">+ Agregar ejercicio</button>
         <button type="button" class="btn small secondary" data-add="rest">+ Agregar descanso</button>
+        <button type="button" class="btn small secondary" data-lib-open>+ Agregar desde biblioteca</button>
       </div>`;
     const itemsBox = div.querySelector('[data-items]');
     (s.items || []).forEach(it => {
@@ -390,22 +415,18 @@ function refreshLibTarget() {
     : '<option value="">(elige una rutina en "Crear rutinas")</option>';
 }
 
+let libSelected = null;
+
+function libBtnHtml(entry, selected) {
+  return `<button type="button" class="lib-btn${selected ? ' selected' : ''}" data-lib-pick="${entry.id}" title="${esc(entry.name)} · ${fmt(entry.duration_seconds)}">${esc(entry.name)}</button>`;
+}
+
 function renderLibrary() {
-  libList.innerHTML = '';
-  if (!window.LIBRARY.length) {
-    libList.innerHTML = '<p class="muted" style="margin:0">Biblioteca vacía. Guarda tu primer ejercicio arriba.</p>';
-    return;
-  }
-  window.LIBRARY.forEach(entry => {
-    const div = document.createElement('div');
-    div.className = 'routine-item';
-    div.innerHTML = `<span><strong>${esc(entry.name)}</strong><br><small class="muted">${fmt(entry.duration_seconds)}${entry.gif_url || entry.gif_path ? ' · con GIF' : ''}</small></span>
-      <span style="display:flex;gap:6px;flex:none">
-        <button type="button" class="btn small" data-lib-add="${entry.id}">+ Agregar</button>
-        <button type="button" class="btn small danger" data-lib-del="${entry.id}">✕</button>
-      </span>`;
-    libList.appendChild(div);
-  });
+  libList.innerHTML = window.LIBRARY.length
+    ? window.LIBRARY.map(e => libBtnHtml(e, e.id === libSelected)).join('')
+    : '<p class="muted" style="margin:0">Biblioteca vacía. Guarda tu primer ejercicio arriba.</p>';
+  if (!window.LIBRARY.find(x => x.id === libSelected)) libSelected = null;
+  document.getElementById('lib-actions').style.display = libSelected ? '' : 'none';
 }
 
 document.getElementById('lib-save').addEventListener('click', async () => {
@@ -433,46 +454,129 @@ document.getElementById('lib-save').addEventListener('click', async () => {
   } catch (err) { libStatus.textContent = '❌ ' + err.message; }
 });
 
-libList.addEventListener('click', async e => {
-  const add = e.target.closest('[data-lib-add]');
-  const del = e.target.closest('[data-lib-del]');
-  if (add) {
-    const entry = window.LIBRARY.find(x => x.id === +add.dataset.libAdd);
-    if (!entry) return;
-    if (!currentRoutine()) {
-      alert('Elige primero una rutina en "Crear rutinas".');
-      showTab('rutinas');
-      return;
-    }
-    const secs = [...sectionsEl.querySelectorAll('[data-section]')];
-    let box = secs[+libTarget.value] ? secs[+libTarget.value].querySelector('[data-items]') : null;
-    if (!box) {
-      if (!secs.length) {
-        alert('La rutina no tiene secciones. Agrega una sección primero en "Crear rutinas".');
-        showTab('rutinas');
-        return;
-      }
-      box = secs[secs.length - 1].querySelector('[data-items]');
-    }
-    const w = document.createElement('div');
-    w.innerHTML = itemHtml({ type: 'exercise', name: entry.name, duration_seconds: entry.duration_seconds, duration_display: fmt(entry.duration_seconds), gif_url: entry.gif_url, gif_path: entry.gif_path });
-    box.appendChild(w.firstElementChild);
-    recalcTotal();
-    libStatus.textContent = `✅ "${entry.name}" agregado. Ábrelo en "Crear rutinas" y guarda la rutina.`;
-    return;
+libList.addEventListener('click', e => {
+  const pick = e.target.closest('[data-lib-pick]');
+  if (!pick) return;
+  const id = +pick.dataset.libPick;
+  libSelected = (libSelected === id) ? null : id; // solo 1 a la vez
+  renderLibrary();
+});
+
+function libTargetBox() {
+  if (!currentRoutine()) {
+    alert('Elige primero una rutina en "Crear rutinas".');
+    showTab('rutinas');
+    return null;
   }
-  if (del) {
-    const id = +del.dataset.libDel;
-    try {
-      const res = await fetch(`/library/${id}`, { method: 'DELETE', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF } });
-      if (!res.ok) throw new Error('Error ' + res.status);
-      window.LIBRARY = window.LIBRARY.filter(x => x.id !== id);
-      libStatus.textContent = 'Ejercicio eliminado de la biblioteca.';
-      renderLibrary();
-    } catch (err) { libStatus.textContent = '❌ ' + err.message; }
+  const secs = [...sectionsEl.querySelectorAll('[data-section]')];
+  const box = secs[+libTarget.value] ? secs[+libTarget.value].querySelector('[data-items]') : null;
+  if (!box) {
+    alert('La rutina no tiene esa sección. Revisa las secciones en "Crear rutinas".');
+    showTab('rutinas');
+    return null;
   }
+  return box;
+}
+
+function libAddEntry(entry, box) {
+  const w = document.createElement('div');
+  w.innerHTML = itemHtml({ type: 'exercise', name: entry.name, duration_seconds: entry.duration_seconds, duration_display: fmt(entry.duration_seconds), gif_url: entry.gif_url, gif_path: entry.gif_path });
+  box.appendChild(w.firstElementChild);
+  recalcTotal();
+}
+
+document.getElementById('lib-add-sel').addEventListener('click', () => {
+  const entry = window.LIBRARY.find(x => x.id === libSelected);
+  if (!entry) return;
+  const box = libTargetBox();
+  if (!box) return;
+  libAddEntry(entry, box);
+  libStatus.textContent = `✅ "${entry.name}" agregado. Ábrelo en "Crear rutinas" y guarda la rutina.`;
+});
+
+document.getElementById('lib-del-sel').addEventListener('click', async () => {
+  if (!libSelected) return;
+  if (!confirm('¿Eliminar este ejercicio de la biblioteca?')) return;
+  try {
+    const res = await fetch(`/library/${libSelected}`, { method: 'DELETE', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF } });
+    if (!res.ok) throw new Error('Error ' + res.status);
+    window.LIBRARY = window.LIBRARY.filter(x => x.id !== libSelected);
+    libSelected = null;
+    libStatus.textContent = 'Ejercicio eliminado de la biblioteca.';
+    renderLibrary();
+  } catch (err) { libStatus.textContent = '❌ ' + err.message; }
 });
 libTarget.addEventListener('focus', refreshLibTarget);
+
+// ---------- Modal: agregar desde biblioteca (buscador + 10 por página) ----------
+const LIBM_PER_PAGE = 10;
+let libModalSection = null, libmPage = 0, libmQuery = '', libmSelected = null;
+
+function filteredLibrary() {
+  const q = libmQuery.trim().toLowerCase();
+  return window.LIBRARY.filter(x => !q || x.name.toLowerCase().includes(q));
+}
+
+function renderLibModal() {
+  const all = filteredLibrary();
+  const pages = Math.max(1, Math.ceil(all.length / LIBM_PER_PAGE));
+  libmPage = Math.min(Math.max(0, libmPage), pages - 1);
+  const slice = all.slice(libmPage * LIBM_PER_PAGE, libmPage * LIBM_PER_PAGE + LIBM_PER_PAGE);
+  document.getElementById('libm-list').innerHTML = slice.length
+    ? slice.map(e => `<button type="button" class="lib-btn${e.id === libmSelected ? ' selected' : ''}" data-libm-pick="${e.id}" title="${esc(e.name)} · ${fmt(e.duration_seconds)}">${esc(e.name)}</button>`).join('')
+    : '<p class="muted">Sin resultados.</p>';
+  document.getElementById('libm-page').textContent = `Página ${libmPage + 1} de ${pages}`;
+  document.getElementById('libm-prev').disabled = libmPage === 0;
+  document.getElementById('libm-next').disabled = libmPage >= pages - 1;
+}
+
+function openLibModal(sec) {
+  libModalSection = sec;
+  libmPage = 0; libmSelected = null; libmQuery = '';
+  document.getElementById('libm-search').value = '';
+  document.getElementById('libm-status').textContent = '';
+  renderLibModal();
+  document.getElementById('lib-modal').classList.add('open');
+}
+
+function closeLibModal() {
+  document.getElementById('lib-modal').classList.remove('open');
+  libModalSection = null;
+}
+
+document.getElementById('libm-search').addEventListener('input', e => {
+  libmQuery = e.target.value; libmPage = 0; renderLibModal();
+});
+document.getElementById('libm-prev').addEventListener('click', () => { libmPage--; renderLibModal(); });
+document.getElementById('libm-next').addEventListener('click', () => { libmPage++; renderLibModal(); });
+document.getElementById('libm-close').addEventListener('click', closeLibModal);
+document.getElementById('lib-modal').addEventListener('click', e => {
+  if (e.target.id === 'lib-modal') closeLibModal();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('lib-modal').classList.contains('open')) closeLibModal();
+});
+document.getElementById('libm-list').addEventListener('click', e => {
+  const pick = e.target.closest('[data-libm-pick]');
+  if (!pick) return;
+  const id = +pick.dataset.libmPick;
+  libmSelected = (libmSelected === id) ? null : id; // solo 1 a la vez
+  renderLibModal();
+});
+document.getElementById('libm-add').addEventListener('click', () => {
+  const entry = window.LIBRARY.find(x => x.id === libmSelected);
+  if (!entry) {
+    document.getElementById('libm-status').textContent = 'Selecciona un ejercicio primero.';
+    return;
+  }
+  if (!libModalSection || !libModalSection.isConnected) {
+    document.getElementById('libm-status').textContent = 'La sección ya no existe.';
+    return;
+  }
+  libAddEntry(entry, libModalSection.querySelector('[data-items]'));
+  closeLibModal();
+  statusEl.textContent = `✅ "${entry.name}" agregado a la sección. No olvides guardar la rutina.`;
+});
 
 document.getElementById('routine-list').addEventListener('click', e => {
   const el = e.target.closest('.routine-item');
@@ -496,6 +600,7 @@ document.getElementById('btn-add-section').addEventListener('click', () => {
     <div class="row">
       <button type="button" class="btn small secondary" data-add="exercise">+ Agregar ejercicio</button>
       <button type="button" class="btn small secondary" data-add="rest">+ Agregar descanso</button>
+      <button type="button" class="btn small secondary" data-lib-open>+ Agregar desde biblioteca</button>
     </div>`;
   sectionsEl.appendChild(div);
   recalcTotal();
@@ -515,6 +620,8 @@ sectionsEl.addEventListener('click', e => {
   }
   if (e.target.closest('[data-del-section]')) { e.target.closest('[data-section]').remove(); recalcTotal(); refreshLibTarget(); return; }
   if (e.target.closest('[data-del-item]')) { e.target.closest('[data-item]').remove(); recalcTotal(); return; }
+  const libOpen = e.target.closest('[data-lib-open]');
+  if (libOpen) { openLibModal(libOpen.closest('[data-section]')); return; }
   const saveLib = e.target.closest('[data-save-lib]');
   if (saveLib) {
     const item = saveLib.closest('[data-item]');
