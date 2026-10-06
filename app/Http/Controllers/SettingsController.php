@@ -37,4 +37,23 @@ class SettingsController extends Controller
 
         return back()->with('status', 'Contraseña actualizada.');
     }
+
+    public function updateSecurity(Request $request)
+    {
+        $data = $request->validate([
+            'security_question' => ['required', 'string', 'max:500'],
+            'security_answer' => ['required', 'string', 'max:255', 'confirmed'],
+        ], [], [
+            'security_question' => 'pregunta de seguridad',
+            'security_answer' => 'respuesta',
+        ]);
+
+        $request->user()->update([
+            'security_question' => $data['security_question'],
+            // Se normaliza antes de guardar: el cast 'hashed' la cifra.
+            'security_answer' => \App\Models\User::normalizeAnswer($data['security_answer']),
+        ]);
+
+        return back()->with('status', 'Pregunta de seguridad guardada.');
+    }
 }

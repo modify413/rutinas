@@ -15,7 +15,7 @@
       <input id="password" name="password" type="password" required autocomplete="current-password">
       <div style="height:12px"></div>
       <button class="btn" style="width:100%" type="submit">Entrar</button>
-      <p class="muted">Usuario inicial: <b>admin</b> / Contraseña: <b>admin123</b></p>
+      <p style="margin-top:12px;text-align:center"><a href="{{ route('password.forgot') }}" style="color:var(--muted)">¿Olvidaste tu contraseña?</a></p>
     </form>
   </div>
 </div>

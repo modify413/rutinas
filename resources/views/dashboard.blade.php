@@ -9,14 +9,18 @@
 
 <div class="dash">
   <aside class="sidebar" id="sidebar">
-    <button class="tab-btn" data-tab="rutinas"><span class="ico">📝</span><span class="lbl">Crear rutinas</span></button>
     <button class="tab-btn" data-tab="timer"><span class="ico">⏱️</span><span class="lbl">Timer</span></button>
+    @if($user->isAdmin())
+    <button class="tab-btn" data-tab="rutinas"><span class="ico">📝</span><span class="lbl">Crear rutinas</span></button>
     <button class="tab-btn" data-tab="biblioteca"><span class="ico">📚</span><span class="lbl">Biblioteca</span></button>
+    <button class="tab-btn" data-tab="alumnos"><span class="ico">🎓</span><span class="lbl">Alumnos</span></button>
+    @endif
     <button class="tab-btn" data-tab="config"><span class="ico">⚙️</span><span class="lbl">Configuración</span></button>
   </aside>
   <div class="dash-main">
 
-{{-- PESTAÑA 1: RUTINAS --}}
+{{-- PESTAÑA 1: RUTINAS (solo profesor) --}}
+@if($user->isAdmin())
 <div class="tab-panel" id="panel-rutinas">
   <div class="grid2">
     <div>
@@ -75,6 +79,7 @@
     </div>
   </div>
 </div>
+@endif
 
 {{-- PESTAÑA 2: TIMER --}}
 <div class="tab-panel" id="panel-timer">
@@ -133,7 +138,8 @@
   </div>
 </div>
 
-{{-- PESTAÑA 3: BIBLIOTECA --}}
+{{-- PESTAÑA 3: BIBLIOTECA (solo profesor) --}}
+@if($user->isAdmin())
 <div class="tab-panel" id="panel-biblioteca">
   <div class="card">
     <h3 style="margin-top:0">📚 Mi biblioteca de ejercicios</h3>
@@ -170,6 +176,7 @@
     <p class="muted" id="lib-status" style="margin-bottom:0"></p>
   </div>
 </div>
+@endif
 
 {{-- MODAL: agregar desde biblioteca --}}
 <div class="modal-scrim" id="lib-modal">
@@ -193,9 +200,54 @@
   </div>
 </div>
 
-{{-- PESTAÑA 4: CONFIG --}}
+{{-- PESTAÑA 5: ALUMNOS (solo profesor) --}}
+@if($user->isAdmin())
+<div class="tab-panel" id="panel-alumnos">
+  <div class="grid2">
+    <div class="card">
+      <h3 style="margin-top:0">+ Nuevo alumno</h3>
+      <p class="muted" style="margin-top:0">La cuenta solo podrá usar el Timer con tus rutinas y cambiar su contraseña.</p>
+      <form method="POST" action="{{ route('students.store') }}">
+        @csrf
+        <label for="st-username">Nombre de usuario</label>
+        <input id="st-username" name="username" required maxlength="255" autocomplete="off">
+        <label for="st-password">Contraseña inicial</label>
+        <input id="st-password" name="password" type="password" required autocomplete="new-password">
+        <div style="height:8px"></div>
+        <button class="btn" style="width:100%" type="submit">Crear cuenta de alumno</button>
+      </form>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Mis alumnos ({{ $students->count() }})</h3>
+      <div class="routine-list">
+        @forelse($students as $st)
+          <div class="routine-item" style="cursor:default">
+            <span><strong>{{ $st->username }}</strong></span>
+            <span style="display:flex;gap:6px;flex:none">
+              <form method="POST" action="{{ route('students.destroy', $st) }}" style="margin:0" onsubmit="return confirm('¿Eliminar esta cuenta?')">
+                @csrf @method('DELETE')
+                <button class="btn small danger" type="submit">Eliminar</button>
+              </form>
+            </span>
+          </div>
+          <form method="POST" action="{{ route('students.password', $st) }}" style="display:flex;gap:6px;margin:-2px 0 8px">
+            @csrf @method('PUT')
+            <input name="password" type="password" placeholder="Nueva contraseña" required autocomplete="new-password" style="flex:1">
+            <button class="btn small secondary" type="submit">Resetear clave</button>
+          </form>
+        @empty
+          <p class="muted">Aún no tienes alumnos.</p>
+        @endforelse
+      </div>
+    </div>
+  </div>
+</div>
+@endif
+
+{{-- PESTAÑA 4/6: CONFIG --}}
 <div class="tab-panel" id="panel-config">
   <div class="grid2">
+    @if($user->isAdmin())
     <div class="card">
       <h3 style="margin-top:0">Cambiar nombre de usuario</h3>
       <form method="POST" action="{{ route('settings.username') }}">
@@ -206,6 +258,7 @@
         <button class="btn" type="submit">Guardar usuario</button>
       </form>
     </div>
+    @endif
     <div class="card">
       <h3 style="margin-top:0">Cambiar contraseña</h3>
       <form method="POST" action="{{ route('settings.password') }}">
@@ -218,6 +271,27 @@
         <input id="password_confirmation" name="password_confirmation" type="password" required autocomplete="new-password">
         <div style="height:8px"></div>
         <button class="btn" type="submit">Guardar contraseña</button>
+      </form>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">🔑 Pregunta de seguridad</h3>
+      <p class="muted" style="margin-top:0">
+        @if($user->security_question)
+          Tienes configurada: <strong>{{ $user->security_question }}</strong>
+        @else
+          Aún no tienes pregunta configurada. Te servirá para recuperar tu contraseña.
+        @endif
+      </p>
+      <form method="POST" action="{{ route('settings.security') }}">
+        @csrf @method('PUT')
+        <label for="security_question">Pregunta</label>
+        <input id="security_question" name="security_question" value="{{ old('security_question', $user->security_question) }}" required maxlength="500" placeholder="Ej: ¿Nombre de mi primera mascota?">
+        <label for="security_answer">Respuesta</label>
+        <input id="security_answer" name="security_answer" type="password" required autocomplete="off">
+        <label for="security_answer_confirmation">Confirmar respuesta</label>
+        <input id="security_answer_confirmation" name="security_answer_confirmation" type="password" required autocomplete="off">
+        <div style="height:8px"></div>
+        <button class="btn" type="submit">Guardar pregunta</button>
       </form>
     </div>
   </div>
@@ -250,10 +324,16 @@ function toggleNav() {
 if (navToggle) navToggle.addEventListener('click', toggleNav);
 if (navScrim) navScrim.addEventListener('click', () => document.body.classList.remove('nav-open'));
 
-// ---------- Tabs ----------
+// ---------- Tabs (solo las visibles según el rol) ----------
 const tabBtns = document.querySelectorAll('.tab-btn');
-const panels = { rutinas: document.getElementById('panel-rutinas'), timer: document.getElementById('panel-timer'), biblioteca: document.getElementById('panel-biblioteca'), config: document.getElementById('panel-config') };
+const panels = {};
+[['rutinas','panel-rutinas'],['timer','panel-timer'],['biblioteca','panel-biblioteca'],['alumnos','panel-alumnos'],['config','panel-config']].forEach(([k, id]) => {
+  const el = document.getElementById(id);
+  if (el) panels[k] = el;
+});
+function storedTab() { try { return localStorage.getItem('app_tab'); } catch(e) { return null; } }
 function showTab(name) {
+  if (!panels[name]) name = Object.keys(panels)[0];
   tabBtns.forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   Object.entries(panels).forEach(([k, el]) => el.classList.toggle('active', k === name));
   try { localStorage.setItem('app_tab', name); } catch(e) {}
@@ -262,7 +342,7 @@ function showTab(name) {
   if (name === 'biblioteca') { try { renderLibrary(); refreshLibTarget(); } catch(e) {} }
 }
 tabBtns.forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
-showTab(['rutinas','timer','biblioteca','config'].includes(window.INIT_TAB) ? window.INIT_TAB : (localStorage.getItem('app_tab') || 'rutinas'));
+showTab(panels[window.INIT_TAB] ? window.INIT_TAB : (panels[storedTab()] ? storedTab() : Object.keys(panels)[0]));
 
 // ---------- Helpers duración ----------
 function parseDuration(str) {
@@ -317,6 +397,8 @@ async function withBtn(btn, fn) {
   try { await fn(); } finally { if (btn.isConnected) btn.disabled = false; }
 }
 
+// Todo el editor y la biblioteca solo existen en el DOM para el profesor
+if (document.getElementById('sections')) {
 // ---------- Editor de rutinas ----------
 let selectedId = window.SELECTED_ID || null;
 const sectionsEl = document.getElementById('sections');
@@ -990,6 +1072,7 @@ function refreshTimerOptions() {
 }
 
 renderEditor();
+} // fin bloque solo-profesor
 
 // ---------- TIMER ----------
 const timerSelect = document.getElementById('timer-select');
@@ -1242,6 +1325,6 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseTimerAuto();
 });
 // Si se entra directamente a la biblioteca (pestaña recordada), pintarla
-if (panels.biblioteca.classList.contains('active')) { renderLibrary(); refreshLibTarget(); }
+if (panels.biblioteca && panels.biblioteca.classList.contains('active')) { try { renderLibrary(); refreshLibTarget(); } catch(e) {} }
 </script>
 @endsection

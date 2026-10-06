@@ -196,6 +196,10 @@ class RoutineController extends Controller
 
     private function authorizeRoutine(Routine $routine): void
     {
-        abort_unless($routine->user_id === auth()->id(), 403);
+        $user = auth()->user();
+        // El profesor accede a sus rutinas; el alumno a las de su profesor.
+        $allowed = $routine->user_id === $user->id
+            || ($user->isStudent() && $routine->user_id === $user->created_by);
+        abort_unless($allowed, 403);
     }
 }

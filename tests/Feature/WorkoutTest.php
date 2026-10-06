@@ -265,4 +265,87 @@ class WorkoutTest extends TestCase
         $this->assertSame('video', $json['flat'][0]['kind']);
         $this->assertSame('image', $json['flat'][1]['kind']);
     }
+
+    public function test_student_sees_only_teacher_routines_and_timer(): void
+    {
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+        $adminId = auth()->id();
+
+        // Rutina del profesor
+        $this->post('/routines', ['name' => 'Profe']);
+        $routineId = \App\Models\Routine::where('name', 'Profe')->first()->id;
+        $this->putJson("/routines/{$routineId}", [
+            'name' => 'Profe',
+            'sections' => [[
+                'title' => 'S1',
+                'items' => [['type' => 'exercise', 'name' => 'A', 'duration_seconds' => 10, 'gif_url' => null]],
+            ]],
+        ])->assertOk();
+
+        // Crear alumno
+        $this->post('/students', ['username' => 'alumno1', 'password' => 'clave123'])
+            ->assertRedirect();
+        $this->assertDatabaseHas('users', ['username' => 'alumno1', 'role' => 'student', 'created_by' => $adminId]);
+        $this->post('/logout');
+
+        // El alumno entra y ve Timer + Configuración, no el resto
+        $dash = $this->get('/')->assertRedirect('/login');
+        $this->post('/login', ['username' => 'alumno1', 'password' => 'clave123'])->assertRedirect('/');
+        $dash = $this->get('/')->assertOk();
+        $dash->assertSee('data-tab="timer"', false);
+        $dash->assertSee('data-tab="config"', false);
+        $dash->assertDontSee('data-tab="rutinas"');
+        $dash->assertDontSee('data-tab="biblioteca"');
+        $dash->assertDontSee('data-tab="alumnos"');
+        $dash->assertDontSee('id="panel-rutinas"');
+        $dash->assertDontSee('id="panel-biblioteca"');
+
+        // Puede ejecutar la rutina de su profesor...
+        $this->getJson("/routines/{$routineId}/json")->assertOk();
+        // ...pero no crear ni modificar nada
+        $this->post('/routines', ['name' => 'Hack'])->assertForbidden();
+        $this->putJson("/routines/{$routineId}", ['name' => 'Hack'])->assertForbidden();
+        $this->deleteJson("/routines/{$routineId}")->assertForbidden();
+        $this->postJson('/library', ['name' => 'X', 'duration_seconds' => 10])->assertForbidden();
+        $this->put('/settings/username', ['username' => 'otro'])->assertForbidden();
+        // ...pero sí cambiar su contraseña
+        $this->put('/settings/password', [
+            'current_password' => 'clave123',
+            'password' => 'nueva456',
+            'password_confirmation' => 'nueva456',
+        ])->assertRedirect();
+    }
+
+    public function test_password_recovery_with_security_question(): void
+    {
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+
+        // Configurar pregunta en Configuración
+        $this->put('/settings/security', [
+            'security_question' => '¿Color favorito?',
+            'security_answer' => 'Azul',
+            'security_answer_confirmation' => 'Azul',
+        ])->assertRedirect();
+        $this->assertDatabaseMissing('users', ['username' => 'admin', 'security_answer' => 'Azul']);
+        $this->post('/logout');
+
+        // Flujo de recuperación
+        $this->get('/recuperar')->assertOk();
+        $this->post('/recuperar', ['username' => 'admin'])->assertOk()
+            ->assertSee('¿Color favorito?');
+        $this->post('/recuperar/verificar', ['username' => 'admin', 'answer' => 'mal'])
+            ->assertRedirect()->assertSessionHasErrors('answer');
+        $this->post('/recuperar/verificar', ['username' => 'admin', 'answer' => 'AZUL'])
+            ->assertRedirect(route('password.reset.form'));
+        $this->get('/recuperar/nueva')->assertOk();
+        $this->post('/recuperar/nueva', [
+            'password' => 'recuperada1',
+            'password_confirmation' => 'recuperada1',
+        ])->assertRedirect(route('login'));
+
+        // Entra con la nueva
+        $this->post('/login', ['username' => 'admin', 'password' => 'recuperada1'])
+            ->assertRedirect('/');
+        $this->assertAuthenticated();
+    }
 }
