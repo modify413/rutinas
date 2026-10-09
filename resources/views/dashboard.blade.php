@@ -108,12 +108,15 @@
 
     <div id="timer-fs">
     <div id="timer-run" style="display:none" class="timer-exercise">
-      <div class="timer-stage">
+      <div class="timer-stage" id="timer-stage">
         <div class="timer-section" id="t-section"></div>
-        <div class="timer-time" id="t-time">00:00</div>
-        <div class="timer-name" id="t-name"></div>
-        <img class="timer-gif" id="t-gif" alt="" style="display:none">
-        <video class="timer-gif" id="t-video" style="display:none" loop muted playsinline preload="auto"></video>
+        <div id="timer-box">
+          <div class="timer-time" id="t-time">00:00</div>
+          <div class="timer-name" id="t-name"></div>
+          <img class="timer-gif" id="t-gif" alt="" style="display:none">
+          <video class="timer-gif" id="t-video" style="display:none" loop muted playsinline preload="auto"></video>
+        </div>
+        <div id="timer-list" style="display:none"></div>
         <div class="timer-next" id="t-next"></div>
         <div class="progress"><div id="t-progress"></div></div>
         <div class="muted" id="t-count"></div>
@@ -321,6 +324,26 @@
         <button class="btn" type="submit">Guardar volumen</button>
       </form>
     </div>
+    <div class="card">
+      <h3 style="margin-top:0">🎨 Estilo timer</h3>
+      <p class="muted" style="margin-top:0">Cómo se ve la zona del Timer al ejecutar.</p>
+      <form method="POST" action="{{ route('settings.style') }}">
+        @csrf @method('PUT')
+        <label style="display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;cursor:pointer">
+          <input type="radio" name="timer_style" value="simple" {{ old('timer_style', $user->timer_style) === 'simple' ? 'checked' : '' }} style="width:auto;margin-top:4px">
+          <span><strong>Simple</strong><br><small class="muted">El timer tal cual es ahora.</small></span>
+        </label>
+        <label style="display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;cursor:pointer">
+          <input type="radio" name="timer_style" value="lista" {{ old('timer_style', $user->timer_style) === 'lista' ? 'checked' : '' }} style="width:auto;margin-top:4px">
+          <span><strong>Más Lista</strong><br><small class="muted">El bloque de tiempo/ejercicio/GIF se mueve a la derecha y a la izquierda aparece la lista de la rutina.</small></span>
+        </label>
+        <label style="display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;cursor:not-allowed;opacity:.45">
+          <input type="radio" name="timer_style" value="simple_lista_next" disabled style="width:auto;margin-top:4px">
+          <span><strong>Simple más Lista más Sig.Ej</strong><br><small class="muted">Próximamente.</small></span>
+        </label>
+        <button class="btn" type="submit">Guardar estilo</button>
+      </form>
+    </div>
   </div>
 </div>
   </div><!-- /dash-main -->
@@ -333,7 +356,8 @@ window.ROUTINES = @json($routines->keyBy('id'));
 window.LIBRARY = @json($library->values());
 window.SELECTED_ID = {{ $selectedId }};
 window.INIT_TAB = @json(request('tab', 'rutinas'));
-window.BEEP_VOLUME = {{ max(0, min(100, (int) $user->beep_volume)) }} / 100;
+window.BEEP_VOLUME = {{ max(0, min(300, (int) $user->beep_volume)) }} / 100;
+window.TIMER_STYLE = @json($user->timer_style === 'lista' ? 'lista' : 'simple');
 const CSRF = @json(csrf_token());
 
 // ---------- Menú lateral expandible ----------
@@ -1117,6 +1141,53 @@ let tickId = null, paused = false, lastWhole = -1, lastBeepSecond = -1, endAt = 
 let audioCtx = null;
 let loadedGifSrc = null;
 let preloadedGifSrc = null;
+let timerListNodes = [], lastHiIdx = -2;
+
+if (window.TIMER_STYLE === 'lista') {
+  document.getElementById('timer-stage').classList.add('lista');
+  document.getElementById('timer-list').style.display = '';
+}
+
+function buildTimerList() {
+  const box = document.getElementById('timer-list');
+  box.innerHTML = '';
+  timerListNodes = [];
+  if (window.TIMER_STYLE !== 'lista') return;
+  let lastSec = null;
+  queue.forEach((it, i) => {
+    if (it.section !== lastSec) {
+      lastSec = it.section;
+      const h = document.createElement('div');
+      h.className = 'tlist-sec';
+      h.textContent = it.section || 'Sección';
+      box.appendChild(h);
+      timerListNodes.push({ el: h, sec: true });
+    }
+    const d = document.createElement('div');
+    d.className = 'tlist-item' + (it.type === 'rest' ? ' rest' : '');
+    d.innerHTML = `<span>${esc(it.name)}</span><span>${fmt(it.duration_seconds)}</span>`;
+    box.appendChild(d);
+    timerListNodes.push({ el: d, sec: false, i });
+  });
+  lastHiIdx = -2;
+}
+
+function highlightTimerList() {
+  if (!timerListNodes.length || lastHiIdx === idx) return;
+  lastHiIdx = idx;
+  let curHeader = null;
+  timerListNodes.forEach(n => {
+    if (n.sec) {
+      n.el.classList.remove('active');
+      curHeader = n.el;
+    } else {
+      const isCur = n.i === idx;
+      n.el.classList.toggle('current', isCur);
+      n.el.classList.toggle('done', n.i < idx);
+      if (isCur && curHeader) curHeader.classList.add('active');
+    }
+  });
+}
 
 function beep(freq = 880, dur = 0.15) {
   try {
@@ -1221,6 +1292,7 @@ function renderCurrent() {
   }
   const done = queue.slice(0, idx).reduce((a, b) => a + b.duration_seconds, 0) + (cur.duration_seconds - remaining);
   tProgress.style.width = totalRoutine ? Math.min(100, (done / totalRoutine) * 100) + '%' : '0%';
+  highlightTimerList();
 }
 
 function tick() {
@@ -1251,6 +1323,7 @@ function startElement(i) {
   remaining = queue[idx].duration_seconds;
   lastWhole = -1; lastBeepSecond = -1;
   loadedGifSrc = null; preloadedGifSrc = null; // el nuevo elemento carga su GIF desde el inicio
+  if (i === 0) buildTimerList();
   endAt = Date.now() + remaining * 1000;
   stopTick();
   renderCurrent();

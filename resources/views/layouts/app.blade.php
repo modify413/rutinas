@@ -70,6 +70,24 @@ body.nav-collapsed .dash-main{margin-left:0}
 .timer-next{margin-top:10px;color:var(--muted)}
 .timer-gif{max-width:320px;width:100%;max-height:300px;object-fit:contain;border-radius:12px;margin:12px auto;display:block;background:#000}
 .timer-rest .timer-time{color:#fff}.timer-exercise .timer-time{color:var(--accent)}
+/* ---- Modo lista del timer: la lista ocupa el hueco izquierdo, el bloque se mueve a la derecha ---- */
+#timer-list{background:#000;border:1px solid var(--line);border-radius:12px;padding:10px;max-height:440px;overflow-y:auto;text-align:left}
+.tlist-sec{font-weight:800;margin:10px 0 4px;text-transform:uppercase;font-size:.95rem}
+.tlist-sec:first-child{margin-top:0}
+.tlist-sec.active{color:var(--accent)}
+.tlist-item{display:flex;justify-content:space-between;gap:8px;padding:6px 8px;border-radius:8px;font-size:.9rem}
+.tlist-item.rest{color:var(--muted)}
+.tlist-item.done{opacity:.4}
+.tlist-item.current{background:var(--accent);color:#fff;font-weight:800}
+.timer-stage.lista{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.timer-stage.lista .timer-section{grid-column:1/-1}
+.timer-stage.lista #timer-list{display:block;grid-column:1;grid-row:2}
+.timer-stage.lista #timer-box{grid-column:2;grid-row:2;min-width:0}
+.timer-stage.lista .timer-next,.timer-stage.lista .progress,.timer-stage.lista #t-count{grid-column:1/-1}
+@media(max-width:700px){
+  .timer-stage.lista{grid-template-columns:1fr}
+  .timer-stage.lista #timer-box,.timer-stage.lista #timer-list{grid-column:1;grid-row:auto}
+}
 .progress{height:10px;background:#000;border:1px solid var(--line);border-radius:999px;overflow:hidden;margin:12px 0}
 .progress>div{height:100%;background:var(--accent);width:0%}
 .timer-controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:14px}

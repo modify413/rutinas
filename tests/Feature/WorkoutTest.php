@@ -389,8 +389,7 @@ class WorkoutTest extends TestCase
     }
 
     public function test_beep_volume_setting(): void
-    {
-        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+    {        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
 
         // Valor por defecto
         $this->assertSame(100, auth()->user()->beep_volume);
@@ -406,5 +405,28 @@ class WorkoutTest extends TestCase
         $this->get('/')->assertOk()
             ->assertSee('Volumen del bip', false)
             ->assertSee('BEEP_VOLUME', false);
+    }
+
+    public function test_timer_style_setting(): void
+    {
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+
+        // Por defecto simple
+        $this->assertSame('simple', auth()->user()->timer_style);
+
+        $this->put('/settings/style', ['timer_style' => 'lista'])->assertRedirect();
+        $this->assertDatabaseHas('users', ['username' => 'admin', 'timer_style' => 'lista']);
+
+        // La 3ª opción (deshabilitada) se rechaza
+        $this->put('/settings/style', ['timer_style' => 'simple_lista_next'])
+            ->assertSessionHasErrors('timer_style');
+        $this->put('/settings/style', ['timer_style' => 'otro'])
+            ->assertSessionHasErrors('timer_style');
+
+        // El dashboard muestra la tarjeta y expone el estilo al JS
+        $this->get('/')->assertOk()
+            ->assertSee('Estilo timer', false)
+            ->assertSee('TIMER_STYLE', false)
+            ->assertSee('simple_lista_next', false);
     }
 }

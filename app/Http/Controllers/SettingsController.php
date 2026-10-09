@@ -82,4 +82,19 @@ class SettingsController extends Controller
 
         return back()->with('status', 'Volumen del bip actualizado.');
     }
+
+    public function updateStyle(Request $request)
+    {
+        // La 3ª opción ("simple_lista_next") existe en la vista pero está
+        // deshabilitada: se rechaza aquí también si alguien la fuerza.
+        $data = $request->validate([
+            'timer_style' => ['required', 'string', 'in:simple,lista'],
+        ], [], [
+            'timer_style' => 'estilo del timer',
+        ]);
+
+        $request->user()->update(['timer_style' => $data['timer_style']]);
+
+        return back()->with('status', 'Estilo del timer actualizado.');
+    }
 }
