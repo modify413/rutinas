@@ -429,7 +429,8 @@ class WorkoutTest extends TestCase
         $this->get('/')->assertOk()
             ->assertSee('Estilo timer', false)
             ->assertSee('TIMER_STYLE', false)
-            ->assertSee('simple_lista_next', false);
+            ->assertSee('simple_lista_next', false)
+            ->assertSee('Se mostrará el ejercicio actual', false);
     }
 
     public function test_settings_status_shows_as_popup(): void

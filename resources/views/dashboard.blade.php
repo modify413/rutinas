@@ -341,7 +341,7 @@
         @csrf @method('PUT')
         <label style="display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;cursor:pointer">
           <input type="radio" name="timer_style" value="simple" {{ old('timer_style', $user->timer_style) === 'simple' ? 'checked' : '' }} style="width:auto;margin-top:4px">
-          <span><strong>Simple</strong><br><small class="muted">El timer tal cual es ahora.</small></span>
+          <span><strong>Simple</strong><br><small class="muted">Se mostrará el ejercicio actual.</small></span>
         </label>
         <label style="display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;cursor:pointer">
           <input type="radio" name="timer_style" value="lista" {{ old('timer_style', $user->timer_style) === 'lista' ? 'checked' : '' }} style="width:auto;margin-top:4px">
@@ -1183,21 +1183,52 @@ let preloadedGifSrc = null;
 let timerListNodes = [], lastHiIdx = -2, lastListSec = null, loadedNextSrc = null;
 
 function timerMode() {
+  // En móvil solo está disponible el modo Simple
+  if (window.matchMedia('(max-width: 700px)').matches) return 'simple';
   return window.TIMER_STYLE === 'simple_lista_next' ? 'next3'
     : (window.TIMER_STYLE === 'lista' ? 'lista' : 'simple');
 }
 
-if (timerMode() !== 'simple') {
+function applyTimerMode() {
   const stage = document.getElementById('timer-stage');
-  stage.classList.add(timerMode() === 'next3' ? 'next3' : 'lista');
-  document.getElementById('timer-list').style.display = '';
-  if (timerMode() === 'next3') document.getElementById('timer-nextbox').style.display = '';
+  stage.classList.remove('lista', 'next3');
+  const m = timerMode();
+  if (m !== 'simple') {
+    stage.classList.add(m === 'next3' ? 'next3' : 'lista');
+    document.getElementById('timer-list').style.display = '';
+    document.getElementById('timer-nextbox').style.display = m === 'next3' ? '' : 'none';
+  } else {
+    document.getElementById('timer-list').style.display = 'none';
+    document.getElementById('timer-nextbox').style.display = 'none';
+  }
 }
 
-if (window.TIMER_STYLE === 'lista') {
-  document.getElementById('timer-stage').classList.add('lista');
-  document.getElementById('timer-list').style.display = '';
-}
+applyTimerMode();
+
+// En móvil solo el modo Simple: bloquear los otros radios en Configuración
+(function () {
+  const mq = window.matchMedia('(max-width: 700px)');
+  function lockStyleRadios() {
+    const mobile = mq.matches;
+    document.querySelectorAll('input[name="timer_style"]').forEach(r => {
+      if (r.value !== 'simple') r.disabled = mobile;
+    });
+    let note = document.getElementById('style-mobile-note');
+    if (mobile && !note) {
+      note = document.createElement('p');
+      note.id = 'style-mobile-note';
+      note.className = 'muted';
+      note.textContent = 'En móvil solo está disponible el modo Simple.';
+      const form = document.querySelector('form[action$="/settings/style"]');
+      if (form) form.prepend(note);
+    } else if (!mobile && note) {
+      note.remove();
+    }
+  }
+  lockStyleRadios();
+  if (mq.addEventListener) mq.addEventListener('change', () => { lockStyleRadios(); applyTimerMode(); });
+  window.addEventListener('resize', applyTimerMode);
+})();
 
 function buildTimerList() {
   const box = document.getElementById('timer-list');
@@ -1323,6 +1354,7 @@ function showIdle() {
   timerRun.style.display = 'none'; timerDone.style.display = 'none'; timerEmpty.style.display = 'block';
 }
 function showRun() {
+  applyTimerMode();
   timerEmpty.style.display = 'none'; timerDone.style.display = 'none'; timerRun.style.display = 'flex';
 }
 function showDone() {
