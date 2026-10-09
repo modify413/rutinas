@@ -448,7 +448,7 @@ function popup(msg, ok = true) {
   t.className = 'toast' + (ok ? '' : ' err');
   t.textContent = msg;
   wrap.appendChild(t);
-  setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 350); }, 3500);
+  setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 350); }, 5000);
 }
 
 // Anti doble-clic para acciones fetch: deshabilita el botón mientras trabaja

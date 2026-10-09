@@ -155,7 +155,9 @@ body{overflow-x:hidden}
 .modal-scrim.open{display:block}
 .modal{max-width:560px;margin:5vh auto;border-top:3px solid var(--accent)}
 /* ---- Popups (toasts) para todas las alertas ---- */
-.toast-wrap{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:400;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:min(92vw,480px)}
+.toast-wrap{position:fixed;top:14px;left:calc(50% + 110px);transform:translateX(-50%);z-index:400;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:min(92vw,480px)}
+body.nav-collapsed .toast-wrap{left:50%}
+@media(max-width:900px){.toast-wrap{left:50%}}
 .toast{background:#000;border:1px solid #e5e5e5;color:var(--text);border-radius:12px;padding:12px 16px;font-weight:600;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.6);opacity:1;transition:opacity .3s ease;width:100%}
 .toast.err{border-color:var(--accent);background:#1a0505}
 .toast.out{opacity:0}
