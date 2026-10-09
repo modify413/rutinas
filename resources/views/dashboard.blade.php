@@ -645,7 +645,7 @@ document.getElementById('lib-save').addEventListener('click', () => withBtn(docu
     document.getElementById('lib-gif').value = '';
     libClearFile();
     libStatus.textContent = '';
-    popup('✅ Ejercicio guardado en tu biblioteca.');
+    alert('✅ Ejercicio guardado en tu biblioteca.');
     renderLibrary();
   } catch (err) { popup('❌ ' + err.message, false); }
 }));
@@ -714,7 +714,7 @@ document.getElementById('lib-add-sel').addEventListener('click', () => {
   const box = libTargetBox();
   if (!box) return;
   libAddEntry(entry, box);
-  popup(`✅ "${entry.name}" agregado. Ábrelo en "Crear rutinas" y guarda la rutina.`);
+  alert(`✅ "${entry.name}" agregado. Ábrelo en "Crear rutinas" y guarda la rutina.`);
 });
 
 document.getElementById('lib-del-sel').addEventListener('click', () => withBtn(document.getElementById('lib-del-sel'), async () => {
@@ -725,7 +725,7 @@ document.getElementById('lib-del-sel').addEventListener('click', () => withBtn(d
     if (!res.ok) throw new Error('Error ' + res.status);
     window.LIBRARY = window.LIBRARY.filter(x => x.id !== libSelected);
     libSelected = null;
-    popup('Ejercicio eliminado de la biblioteca.');
+    alert('Ejercicio eliminado de la biblioteca.');
     renderLibrary();
     libResetForm();
   } catch (err) { popup('❌ ' + err.message, false); }
@@ -768,7 +768,7 @@ document.getElementById('lib-update').addEventListener('click', () => withBtn(do
     renderLibrary();
     libResetForm();
     libClearFile();
-    popup('✅ Ejercicio actualizado.');
+    alert('✅ Ejercicio actualizado.');
   } catch (err) { popup('❌ ' + err.message, false); }
 }));
 
@@ -840,7 +840,7 @@ document.getElementById('libm-add').addEventListener('click', () => {
   }
   libAddEntry(entry, libModalSection.querySelector('[data-items]'));
   closeLibModal();
-  popup(`✅ "${entry.name}" agregado a la sección. No olvides guardar la rutina.`);
+  alert(`✅ "${entry.name}" agregado a la sección. No olvides guardar la rutina.`);
 });
 
 document.getElementById('routine-list').addEventListener('click', e => {
@@ -910,7 +910,7 @@ sectionsEl.addEventListener('click', e => {
         const saved = await res.json();
         window.LIBRARY.push(saved);
         window.LIBRARY.sort((a, b) => a.name.localeCompare(b.name));
-        popup(`✅ "${saved.name}" guardado en tu biblioteca.`);
+        alert(`✅ "${saved.name}" guardado en tu biblioteca.`);
         renderLibrary();
       })
       .catch(err => { popup('❌ ' + err.message, false); })
@@ -1117,7 +1117,7 @@ document.getElementById('btn-save').addEventListener('click', () => withBtn(docu
     window.ROUTINES[saved.id] = saved;
     selectedId = saved.id;
     renderEditor();
-    popup('✅ Rutina guardada en SQLite.');
+    alert('✅ Rutina guardada en SQLite.');
     refreshTimerOptions();
   } catch (err) {
     popup('❌ ' + err.message, false);
