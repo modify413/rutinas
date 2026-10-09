@@ -294,6 +294,22 @@
         <button class="btn" type="submit">Guardar pregunta</button>
       </form>
     </div>
+    <div class="card">
+      <h3 style="margin-top:0">🔁 Repetición del timer</h3>
+      <p class="muted" style="margin-top:0">Cómo se ejecutan las secciones con ×N en el Timer.</p>
+      <form method="POST" action="{{ route('settings.timer_mode') }}">
+        @csrf @method('PUT')
+        <label style="display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;cursor:pointer">
+          <input type="radio" name="timer_repeat_mode" value="rounds" {{ old('timer_repeat_mode', $user->timer_repeat_mode) === 'rounds' ? 'checked' : '' }} style="width:auto;margin-top:4px">
+          <span><strong>Por vueltas</strong> (actual)<br><small class="muted">S1×2, S2×2 → S1, S2, S1, S2</small></span>
+        </label>
+        <label style="display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;cursor:pointer">
+          <input type="radio" name="timer_repeat_mode" value="frequency" {{ old('timer_repeat_mode', $user->timer_repeat_mode) === 'frequency' ? 'checked' : '' }} style="width:auto;margin-top:4px">
+          <span><strong>Por frecuencia</strong><br><small class="muted">S1×2, S2×2 → S1, S1, S2, S2</small></span>
+        </label>
+        <button class="btn" type="submit">Guardar modo</button>
+      </form>
+    </div>
   </div>
 </div>
   </div><!-- /dash-main -->

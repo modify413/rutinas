@@ -56,4 +56,17 @@ class SettingsController extends Controller
 
         return back()->with('status', 'Pregunta de seguridad guardada.');
     }
+
+    public function updateTimerMode(Request $request)
+    {
+        $data = $request->validate([
+            'timer_repeat_mode' => ['required', 'string', 'in:rounds,frequency'],
+        ], [], [
+            'timer_repeat_mode' => 'repetición del timer',
+        ]);
+
+        $request->user()->update(['timer_repeat_mode' => $data['timer_repeat_mode']]);
+
+        return back()->with('status', 'Repetición del timer actualizada.');
+    }
 }

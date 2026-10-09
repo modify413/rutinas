@@ -348,4 +348,43 @@ class WorkoutTest extends TestCase
             ->assertRedirect('/');
         $this->assertAuthenticated();
     }
+
+    public function test_timer_repeat_mode_rounds_vs_frequency(): void
+    {
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+        $this->post('/routines', ['name' => 'Modos']);
+        $routineId = \App\Models\Routine::where('name', 'Modos')->first()->id;
+        $payload = [
+            'name' => 'Modos',
+            'sections' => [
+                ['title' => 'S1', 'reps' => 2, 'items' => [
+                    ['type' => 'exercise', 'name' => 'A', 'duration_seconds' => 10, 'gif_url' => null],
+                ]],
+                ['title' => 'S2', 'reps' => 2, 'items' => [
+                    ['type' => 'exercise', 'name' => 'B', 'duration_seconds' => 10, 'gif_url' => null],
+                ]],
+            ],
+        ];
+        $this->putJson("/routines/{$routineId}", $payload)->assertOk();
+
+        // Por defecto: por vueltas S1,S2,S1,S2
+        $json = $this->getJson("/routines/{$routineId}/json")->assertOk()->json();
+        $this->assertSame(['A', 'B', 'A', 'B'], array_column($json['flat'], 'name'));
+        $this->assertSame(40, $json['total_seconds']);
+
+        // Cambio a frecuencia: S1,S1,S2,S2 (mismo total)
+        $this->put('/settings/timer-mode', ['timer_repeat_mode' => 'frequency'])
+            ->assertRedirect();
+        $json = $this->getJson("/routines/{$routineId}/json")->assertOk()->json();
+        $this->assertSame(['A', 'A', 'B', 'B'], array_column($json['flat'], 'name'));
+        $this->assertSame(40, $json['total_seconds']);
+        $this->assertSame('S1 · vuelta 2/2', $json['flat'][1]['section']);
+
+        // Valor inválido
+        $this->put('/settings/timer-mode', ['timer_repeat_mode' => 'otro'])
+            ->assertSessionHasErrors('timer_repeat_mode');
+
+        // El dashboard muestra los radios con el modo actual
+        $this->get('/')->assertOk()->assertSee('Repetición del timer', false);
+    }
 }
