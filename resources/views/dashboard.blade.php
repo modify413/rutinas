@@ -116,6 +116,7 @@
           <div class="timer-name" id="t-name"></div>
           <img class="timer-gif" id="t-gif" alt="" style="display:none">
           <video class="timer-gif" id="t-video" style="display:none" loop muted playsinline preload="auto"></video>
+          <iframe class="timer-gif" id="t-yt" style="display:none" allow="autoplay; encrypted-media" allowfullscreen></iframe>
         </div>
         <div id="timer-list" style="display:none"></div>
         <div id="timer-nextbox" style="display:none">
@@ -123,6 +124,7 @@
           <div class="timer-name" id="t-nextname">—</div>
           <img class="timer-gif" id="t-nextgif" alt="" style="display:none">
           <video class="timer-gif" id="t-nextvideo" style="display:none" loop muted playsinline preload="auto"></video>
+          <iframe class="timer-gif" id="t-nextyt" style="display:none" allow="autoplay; encrypted-media" allowfullscreen></iframe>
           <div class="muted" id="t-nextempty" style="display:none">Fin de la rutina</div>
         </div>
         <div id="timer-bottom">
@@ -167,8 +169,8 @@
         <input id="lib-dur" placeholder="0:30">
       </div>
     </div>
-    <label for="lib-gif">GIF o video (URL directa, opcional)</label>
-    <input id="lib-gif" placeholder="https://...gif o ...mp4" maxlength="2048">
+    <label for="lib-gif">GIF, video o YouTube (URL, opcional)</label>
+    <input id="lib-gif" placeholder="https://...gif, ...mp4 o youtube.com/..." maxlength="2048">
     <label for="lib-file">…o subir desde Mi PC (imagen o video corto, máx 25 MB)</label>
     <input type="file" id="lib-file" accept="image/gif,image/jpeg,image/png,image/webp,video/mp4,video/webm">
     <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
@@ -536,13 +538,14 @@ function itemHtml(item, sIdx, iIdx) {
         <button type="button" class="btn small secondary" data-gifmode="file" style="${item.gif_path ? 'background:var(--accent);border-color:var(--accent)' : ''}">📁 Mi PC</button>
         <button type="button" class="btn small ghost" data-gifclear>Quitar</button>
       </div>
-      <input data-gif value="${esc(item.gif_url || '')}" placeholder="Enlace directo (imagen .gif o video .mp4)" maxlength="2048" style="${item.gif_path ? 'display:none' : ''}">
+      <input data-gif value="${esc(item.gif_url || '')}" placeholder="Enlace directo, MP4 o YouTube" maxlength="2048" style="${item.gif_path ? 'display:none' : ''}">
       <input type="file" data-giffile accept="image/gif,image/jpeg,image/png,image/webp,video/mp4,video/webm" style="display:none;margin-top:6px">
       <input type="hidden" data-gifpath value="${esc(item.gif_path || '')}">
       <div><img data-gifpreview alt="" style="max-width:180px;max-height:140px;display:none;border-radius:8px;margin-top:6px;background:#000"></div>
       <div><video data-gifpreviewv style="max-width:180px;max-height:140px;display:none;border-radius:8px;margin-top:6px;background:#000" loop muted playsinline></video></div>
+      <div><iframe data-gifpreviewyt style="width:180px;height:120px;display:none;border-radius:8px;margin-top:6px;background:#000;border:0" allow="autoplay; encrypted-media" allowfullscreen></iframe></div>
       <div class="muted" data-gifmsg style="margin-top:4px">${item.gif_path ? '📁 Archivo subido al bucket ✓' : ''}</div>
-      <div class="muted" style="font-size:.75rem">Acepta GIF/imagen por enlace directo o video corto MP4. En Giphy/Tenor usa clic derecho → "Copiar dirección de imagen".</div>
+      <div class="muted" style="font-size:.75rem">Acepta GIF/imagen por enlace directo, video corto MP4 o enlace de YouTube. En Giphy usa clic derecho → "Copiar dirección de imagen".</div>
     </div>
     <div class="item-actions">
       <button type="button" class="btn small secondary" data-move-item="-1">↑</button>
@@ -999,15 +1002,37 @@ sectionsEl.addEventListener('click', e => {
 
 sectionsEl.addEventListener('input', e => { recalcTotal(); });
 
+function mediaKindOf(url) {
+  const s = String(url || '');
+  if (/(?:youtube\.com\/(?:watch|embed|shorts|live)|youtu\.be\/)/i.test(s)) return 'youtube';
+  if (/\.(mp4|webm)(\?|#|$)/i.test(s)) return 'video';
+  return 'image';
+}
 function isVideoSrc(url) {
-  return /\.(mp4|webm)(\?|#|$)/i.test(String(url || ''));
+  return mediaKindOf(url) === 'video';
+}
+function ytId(url) {
+  const m = String(url || '').match(/(?:youtube\.com\/(?:watch\?.*v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{6,})/i);
+  return m ? m[1] : null;
+}
+function ytEmbed(id, autoplay = true) {
+  return `https://www.youtube-nocookie.com/embed/${id}?enablejsapi=1&rel=0&loop=1&playlist=${id}` + (autoplay ? '&autoplay=1&mute=1' : '');
+}
+function ytCommand(frame, func) {
+  try {
+    if (frame && frame.contentWindow) {
+      frame.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args: '' }), '*');
+    }
+  } catch (e) {}
 }
 
 function hidePreviews(item) {
   const prev = item.querySelector('[data-gifpreview]');
   const prevV = item.querySelector('[data-gifpreviewv]');
+  const prevYt = item.querySelector('[data-gifpreviewyt]');
   prev.removeAttribute('src'); prev.style.display = 'none';
   prevV.removeAttribute('src'); prevV.style.display = 'none';
+  if (prevYt) { prevYt.removeAttribute('src'); prevYt.style.display = 'none'; }
 }
 
 function updateGifPreview(item) {
@@ -1018,6 +1043,18 @@ function updateGifPreview(item) {
   hidePreviews(item);
   if (!url) {
     msg.textContent = savedPath ? '📁 Archivo subido al bucket ✓' : '';
+    return;
+  }
+  if (mediaKindOf(url) === 'youtube') {
+    const id = ytId(url);
+    const prevYt = item.querySelector('[data-gifpreviewyt]');
+    if (id && prevYt) {
+      prevYt.src = ytEmbed(id);
+      prevYt.style.display = 'block';
+      msg.textContent = '✅ Vista previa del video de YouTube.';
+    } else {
+      msg.textContent = '❌ No reconozco ese enlace de YouTube. Usa el enlace del video (ver, compartir o shorts).';
+    }
     return;
   }
   if (isVideoSrc(url)) {
@@ -1171,7 +1208,7 @@ const timerEmpty = document.getElementById('timer-empty');
 const timerRun = document.getElementById('timer-run');
 const timerDone = document.getElementById('timer-done');
 const tTime = document.getElementById('t-time'), tName = document.getElementById('t-name'),
-      tGif = document.getElementById('t-gif'), tVideo = document.getElementById('t-video'), tNext = document.getElementById('t-next'),
+      tGif = document.getElementById('t-gif'), tVideo = document.getElementById('t-video'), tYt = document.getElementById('t-yt'), tNext = document.getElementById('t-next'),
       tSection = document.getElementById('t-section'), tCount = document.getElementById('t-count'),
       tProgress = document.getElementById('t-progress');
 
@@ -1256,18 +1293,31 @@ function buildTimerList() {
   lastListSec = sec;
 }
 
+function hideTimerMedia() {
+  tGif.removeAttribute('src'); tGif.style.display = 'none';
+  tVideo.removeAttribute('src'); tVideo.style.display = 'none'; tVideo.pause();
+  ytCommand(tYt, 'pauseVideo');
+  tYt.removeAttribute('src'); tYt.style.display = 'none';
+}
+
 function renderNextBox() {
   if (timerMode() !== 'next3') return;
   const nxt = queue[idx + 1];
   const nameEl = document.getElementById('t-nextname');
   const img = document.getElementById('t-nextgif');
   const vid = document.getElementById('t-nextvideo');
+  const yt = document.getElementById('t-nextyt');
   const empty = document.getElementById('t-nextempty');
+  const hideAll = () => {
+    img.removeAttribute('src'); img.style.display = 'none';
+    vid.removeAttribute('src'); vid.style.display = 'none'; vid.pause();
+    ytCommand(yt, 'pauseVideo');
+    yt.removeAttribute('src'); yt.style.display = 'none';
+  };
   if (!nxt) {
     loadedNextSrc = null;
     nameEl.textContent = '—';
-    img.removeAttribute('src'); img.style.display = 'none';
-    vid.removeAttribute('src'); vid.style.display = 'none'; vid.pause();
+    hideAll();
     empty.style.display = 'block';
     return;
   }
@@ -1275,25 +1325,24 @@ function renderNextBox() {
   nameEl.textContent = nxt.name;
   if (!nxt.gif_url) {
     loadedNextSrc = null;
-    img.removeAttribute('src'); img.style.display = 'none';
-    vid.removeAttribute('src'); vid.style.display = 'none'; vid.pause();
+    hideAll();
     return;
   }
   if (loadedNextSrc === nxt.gif_url) return;
   loadedNextSrc = nxt.gif_url;
-  const kind = nxt.kind || (/\.(mp4|webm)(\?|#|$)/i.test(nxt.gif_url) ? 'video' : 'image');
-  img.onerror = () => { img.style.display = 'none'; loadedNextSrc = null; };
-  vid.onerror = () => { vid.style.display = 'none'; loadedNextSrc = null; };
-  img.removeAttribute('src');
-  vid.removeAttribute('src');
-  vid.pause();
-  if (kind === 'video') {
-    img.style.display = 'none';
+  const kind = nxt.kind || mediaKindOf(nxt.gif_url);
+  hideAll();
+  if (kind === 'youtube') {
+    const id = ytId(nxt.gif_url);
+    if (id) { yt.src = ytEmbed(id); yt.style.display = 'block'; }
+    else { loadedNextSrc = null; }
+  } else if (kind === 'video') {
+    vid.onerror = () => { vid.style.display = 'none'; loadedNextSrc = null; };
     vid.src = nxt.gif_url;
     vid.style.display = 'block';
     vid.play().catch(() => {});
   } else {
-    vid.style.display = 'none';
+    img.onerror = () => { img.style.display = 'none'; loadedNextSrc = null; };
     img.src = nxt.gif_url;
     img.style.display = 'block';
   }
@@ -1349,6 +1398,7 @@ async function loadRoutine(id) {
 function showIdle() {
   loadedGifSrc = null; preloadedGifSrc = null; loadedNextSrc = null;
   tVideo.pause();
+  ytCommand(tYt, 'pauseVideo');
   timerListNodes = []; lastHiIdx = -2; lastListSec = null;
   document.getElementById('timer-list').innerHTML = '';
   timerRun.style.display = 'none'; timerDone.style.display = 'none'; timerEmpty.style.display = 'block';
@@ -1361,6 +1411,7 @@ function showDone() {
   timerRun.style.display = 'none'; timerDone.style.display = 'block';
   stopTick();
   tVideo.pause();
+  ytCommand(tYt, 'pauseVideo');
   beep(660, .2); setTimeout(() => beep(880, .25), 220); setTimeout(() => beep(1100, .35), 480);
 }
 
@@ -1381,52 +1432,51 @@ function renderCurrent() {
   if (!isRest && cur.gif_url) {
     // Cargar el medio una sola vez por elemento: reasignar el src en cada
     // tick lo reinicia y nunca avanza.
-    const kind = cur.kind || (/\.(mp4|webm)(\?|#|$)/i.test(cur.gif_url) ? 'video' : 'image');
-    const showImg = kind !== 'video';
+    const kind = cur.kind || mediaKindOf(cur.gif_url);
     if (loadedGifSrc !== cur.gif_url) {
       loadedGifSrc = cur.gif_url;
-      tGif.onerror = () => { tGif.style.display = 'none'; loadedGifSrc = null; };
-      tVideo.onerror = () => { tVideo.style.display = 'none'; loadedGifSrc = null; };
-      tGif.removeAttribute('src');
-      tVideo.removeAttribute('src');
-      tVideo.pause();
-      if (showImg) {
-        tVideo.style.display = 'none';
-        tGif.src = cur.gif_url;
-        tGif.style.display = 'block';
-      } else {
-        tGif.style.display = 'none';
+      hideTimerMedia();
+      if (kind === 'youtube') {
+        const id = ytId(cur.gif_url);
+        if (id) { tYt.src = ytEmbed(id); tYt.style.display = 'block'; }
+        else { loadedGifSrc = null; }
+      } else if (kind === 'video') {
+        tVideo.onerror = () => { tVideo.style.display = 'none'; loadedGifSrc = null; };
         tVideo.src = cur.gif_url;
         tVideo.style.display = 'block';
         tVideo.play().catch(() => {});
+      } else {
+        tGif.onerror = () => { tGif.style.display = 'none'; loadedGifSrc = null; };
+        tGif.src = cur.gif_url;
+        tGif.style.display = 'block';
       }
     } else {
-      tGif.style.display = showImg && tGif.getAttribute('src') ? 'block' : 'none';
-      tVideo.style.display = !showImg && tVideo.getAttribute('src') ? 'block' : 'none';
-      if (!showImg && paused) tVideo.pause();
-      else if (!showImg && !paused && tVideo.paused) tVideo.play().catch(() => {});
+      tGif.style.display = (kind === 'image' && tGif.getAttribute('src')) ? 'block' : 'none';
+      tVideo.style.display = (kind === 'video' && tVideo.getAttribute('src')) ? 'block' : 'none';
+      tYt.style.display = (kind === 'youtube' && tYt.getAttribute('src')) ? 'block' : 'none';
+      if (kind === 'video') {
+        if (paused) tVideo.pause();
+        else if (tVideo.paused) tVideo.play().catch(() => {});
+      }
     }
   }
   else {
     loadedGifSrc = null;
-    tGif.removeAttribute('src');
-    tVideo.removeAttribute('src');
-    tVideo.pause();
-    tGif.style.display = 'none';
-    tVideo.style.display = 'none';
+    hideTimerMedia();
   }
   // Precargar el medio del siguiente elemento (una sola vez) para que arranque al instante
   if (nxt && nxt.gif_url && nxt.gif_url !== loadedGifSrc && nxt.gif_url !== preloadedGifSrc) {
     preloadedGifSrc = nxt.gif_url;
-    const nkind = nxt.kind || (/\.(mp4|webm)(\?|#|$)/i.test(nxt.gif_url) ? 'video' : 'image');
+    const nkind = nxt.kind || mediaKindOf(nxt.gif_url);
     if (nkind === 'video') {
       const pre = document.createElement('video');
       pre.preload = 'auto'; pre.muted = true;
       pre.src = nxt.gif_url;
-    } else {
+    } else if (nkind === 'image') {
       const pre = new Image();
       pre.src = nxt.gif_url;
     }
+    // YouTube no se precarga: su iframe carga rápido al mostrarse
   }
   const done = queue.slice(0, idx).reduce((a, b) => a + b.duration_seconds, 0) + (cur.duration_seconds - remaining);
   tProgress.style.width = totalRoutine ? Math.min(100, (done / totalRoutine) * 100) + '%' : '0%';
@@ -1494,8 +1544,10 @@ document.getElementById('timer-pause').addEventListener('click', (e) => {
   if (!paused) {
     endAt = Date.now() + remaining * 1000;
     if (tVideo.style.display !== 'none' && tVideo.getAttribute('src')) tVideo.play().catch(() => {});
+    if (tYt.style.display !== 'none' && tYt.getAttribute('src')) ytCommand(tYt, 'playVideo');
   } else {
     tVideo.pause();
+    ytCommand(tYt, 'pauseVideo');
   }
 });
 
@@ -1580,6 +1632,7 @@ function pauseTimerAuto() {
   if (queue.length && tickId && !paused) {
     paused = true;
     tVideo.pause();
+    ytCommand(tYt, 'pauseVideo');
     const pb = document.getElementById('timer-pause');
     if (pb) pb.textContent = '▶ Reanudar';
   }
