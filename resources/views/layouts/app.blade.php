@@ -64,6 +64,10 @@ body.nav-collapsed .dash-main{margin-left:0}
 .badge.exercise{background:#3d0a08;color:#ffb4ab}.badge.rest{background:#262626;color:#e5e5e5}
 .total{font-size:1.3rem;font-weight:800;margin:12px 0}.total span{color:var(--accent)}
 .timer-stage{text-align:center;padding:12px}
+/* La zona de ejecución estira y el bloque inferior queda fijo abajo */
+#timer-run{display:flex;flex-direction:column;min-height:calc(100vh - 180px)}
+.timer-stage{flex:1;display:flex;flex-direction:column}
+#timer-box{flex:1;min-height:0}
 .timer-time{font-size:clamp(2.6rem,9vh,4.2rem);font-weight:900;letter-spacing:2px;font-variant-numeric:tabular-nums;line-height:1.05}
 .timer-name{font-size:clamp(1.2rem,3.4vh,1.8rem);font-weight:800;margin:6px 0;text-transform:uppercase}
 .timer-section{font-size:clamp(1.2rem,3.4vh,1.8rem);font-weight:800;margin:6px 0;text-transform:uppercase;color:var(--muted)}
@@ -79,14 +83,17 @@ body.nav-collapsed .dash-main{margin-left:0}
 .tlist-item.rest{color:var(--muted)}
 .tlist-item.done{opacity:.4}
 .tlist-item.current{background:var(--accent);color:#fff;font-weight:800}
-.timer-stage.lista{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
-.timer-stage.lista .timer-section{grid-column:1/-1}
+.timer-stage.lista{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto minmax(0,1fr) auto;gap:16px;align-items:start}
+.timer-stage.lista .timer-section{grid-column:1/-1;grid-row:1}
 .timer-stage.lista #timer-list{display:block;grid-column:2;grid-row:2}
-.timer-stage.lista #timer-box{grid-column:1;grid-row:2;min-width:0}
-.timer-stage.lista .timer-next,.timer-stage.lista .progress,.timer-stage.lista #t-count{grid-column:1/-1}
+.timer-stage.lista #timer-box{grid-column:1;grid-row:2;min-width:0;flex:none}
+.timer-stage.lista #timer-bottom{grid-column:1/-1;grid-row:3}
 @media(max-width:700px){
-  .timer-stage.lista{grid-template-columns:1fr}
-  .timer-stage.lista #timer-box,.timer-stage.lista #timer-list{grid-column:1;grid-row:auto}
+  .timer-stage.lista{grid-template-columns:1fr;grid-template-rows:auto auto auto auto}
+  .timer-stage.lista .timer-section{grid-row:1}
+  .timer-stage.lista #timer-box{grid-column:1;grid-row:2}
+  .timer-stage.lista #timer-list{grid-column:1;grid-row:3}
+  .timer-stage.lista #timer-bottom{grid-column:1;grid-row:4}
 }
 .progress{height:10px;background:#000;border:1px solid var(--line);border-radius:999px;overflow:hidden;margin:12px 0}
 .progress>div{height:100%;background:var(--accent);width:0%}
@@ -139,6 +146,7 @@ body{overflow-x:hidden}
 /* ---- Pantalla completa del timer: solo se ve el timer ---- */
 #timer-fs{background:var(--card);border-radius:14px}
 #timer-fs:fullscreen{background:#000;border-radius:0;padding:12px 16px;overflow-y:auto;display:flex;flex-direction:column;justify-content:center}
+#timer-fs:fullscreen #timer-run{min-height:calc(100vh - 40px)}
 #timer-fs:fullscreen .timer-time{font-size:clamp(3.5rem,16vh,11rem)}
 #timer-fs:fullscreen .timer-name{font-size:clamp(1.2rem,4vh,3rem)}
 #timer-fs:fullscreen .timer-section{font-size:clamp(1.2rem,4vh,3rem)}

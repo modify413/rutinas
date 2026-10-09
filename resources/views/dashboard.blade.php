@@ -117,9 +117,11 @@
           <video class="timer-gif" id="t-video" style="display:none" loop muted playsinline preload="auto"></video>
         </div>
         <div id="timer-list" style="display:none"></div>
-        <div class="timer-next" id="t-next"></div>
-        <div class="progress"><div id="t-progress"></div></div>
-        <div class="muted" id="t-count"></div>
+        <div id="timer-bottom">
+          <div class="timer-next" id="t-next"></div>
+          <div class="progress"><div id="t-progress"></div></div>
+          <div class="muted" id="t-count"></div>
+        </div>
       </div>
       <div class="timer-controls">
         <button class="btn warn" id="timer-pause" type="button">⏸ Pausar</button>
@@ -1221,7 +1223,7 @@ function showIdle() {
   timerRun.style.display = 'none'; timerDone.style.display = 'none'; timerEmpty.style.display = 'block';
 }
 function showRun() {
-  timerEmpty.style.display = 'none'; timerDone.style.display = 'none'; timerRun.style.display = 'block';
+  timerEmpty.style.display = 'none'; timerDone.style.display = 'none'; timerRun.style.display = 'flex';
 }
 function showDone() {
   timerRun.style.display = 'none'; timerDone.style.display = 'block';
