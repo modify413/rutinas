@@ -393,13 +393,13 @@ class WorkoutTest extends TestCase
         $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
 
         // Valor por defecto
-        $this->assertSame(80, auth()->user()->beep_volume);
+        $this->assertSame(100, auth()->user()->beep_volume);
 
-        $this->put('/settings/volume', ['beep_volume' => 30])->assertRedirect();
-        $this->assertDatabaseHas('users', ['username' => 'admin', 'beep_volume' => 30]);
+        $this->put('/settings/volume', ['beep_volume' => 250])->assertRedirect();
+        $this->assertDatabaseHas('users', ['username' => 'admin', 'beep_volume' => 250]);
 
         // Fuera de rango
-        $this->put('/settings/volume', ['beep_volume' => 150])
+        $this->put('/settings/volume', ['beep_volume' => 350])
             ->assertSessionHasErrors('beep_volume');
 
         // El dashboard expone el volumen al JS y la tarjeta

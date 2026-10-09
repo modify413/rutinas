@@ -73,7 +73,7 @@ class SettingsController extends Controller
     public function updateVolume(Request $request)
     {
         $data = $request->validate([
-            'beep_volume' => ['required', 'integer', 'min:0', 'max:100'],
+            'beep_volume' => ['required', 'integer', 'min:0', 'max:300'],
         ], [], [
             'beep_volume' => 'volumen',
         ]);

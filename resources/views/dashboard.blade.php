@@ -312,11 +312,11 @@
     </div>
     <div class="card">
       <h3 style="margin-top:0">🔊 Volumen del bip</h3>
-      <p class="muted" style="margin-top:0">Intensidad del sonido de los últimos 5 segundos. En 0 se silencia.</p>
+      <p class="muted" style="margin-top:0">Intensidad del sonido de los últimos 5 segundos. 100% es el volumen normal, hasta 300% más fuerte. En 0 se silencia.</p>
       <form method="POST" action="{{ route('settings.volume') }}">
         @csrf @method('PUT')
         <label for="beep_volume">Volumen: <strong id="beep-label">{{ (int) old('beep_volume', $user->beep_volume) }}%</strong></label>
-        <input id="beep_volume" name="beep_volume" type="range" min="0" max="100" step="5" value="{{ (int) old('beep_volume', $user->beep_volume) }}" oninput="document.getElementById('beep-label').textContent = this.value + '%'">
+        <input id="beep_volume" name="beep_volume" type="range" min="0" max="300" step="10" value="{{ (int) old('beep_volume', $user->beep_volume) }}" oninput="document.getElementById('beep-label').textContent = this.value + '%'">
         <div style="height:8px"></div>
         <button class="btn" type="submit">Guardar volumen</button>
       </form>
