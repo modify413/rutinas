@@ -5,6 +5,9 @@
 @section('content')
 <div class="login-wrap">
   <div class="card login-card">
+    @if(!empty($logoUrl))
+      <img src="{{ $logoUrl }}" alt="Logo" style="max-width:160px;max-height:120px;object-fit:contain;display:block;margin:0 auto 8px">
+    @endif
     <h1 style="margin:0 0 4px">⏱️ Iniciar sesión</h1>
     <p class="muted" style="margin-top:0">Inicia sesión para gestionar tus rutinas.</p>
     <form method="POST" action="{{ route('login.attempt') }}">

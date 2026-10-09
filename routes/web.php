@@ -29,6 +29,9 @@ Route::middleware('auth')->group(function () {
 
     Route::put('/settings/password', [SettingsController::class, 'updatePassword'])->name('settings.password');
     Route::put('/settings/security', [SettingsController::class, 'updateSecurity'])->name('settings.security');
+    Route::put('/settings/timer-mode', [SettingsController::class, 'updateTimerMode'])->name('settings.timer_mode');
+    Route::put('/settings/volume', [SettingsController::class, 'updateVolume'])->name('settings.volume');
+    Route::put('/settings/style', [SettingsController::class, 'updateStyle'])->name('settings.style');
 
     // Solo el profesor administra rutinas, biblioteca y alumnos
     Route::middleware(EnsureAdmin::class)->group(function () {
@@ -42,6 +45,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/library/{libraryExercise}', [LibraryExerciseController::class, 'destroy'])->name('library.destroy');
 
         Route::put('/settings/username', [SettingsController::class, 'updateUsername'])->name('settings.username');
+        Route::post('/settings/logo', [SettingsController::class, 'updateLogo'])->name('settings.logo');
 
         Route::post('/students', [StudentController::class, 'store'])->name('students.store');
         Route::put('/students/{student}/password', [StudentController::class, 'resetPassword'])->name('students.password');

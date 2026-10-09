@@ -348,4 +348,136 @@ class WorkoutTest extends TestCase
             ->assertRedirect('/');
         $this->assertAuthenticated();
     }
+
+    public function test_timer_repeat_mode_rounds_vs_frequency(): void
+    {
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+        $this->post('/routines', ['name' => 'Modos']);
+        $routineId = \App\Models\Routine::where('name', 'Modos')->first()->id;
+        $payload = [
+            'name' => 'Modos',
+            'sections' => [
+                ['title' => 'S1', 'reps' => 2, 'items' => [
+                    ['type' => 'exercise', 'name' => 'A', 'duration_seconds' => 10, 'gif_url' => null],
+                ]],
+                ['title' => 'S2', 'reps' => 2, 'items' => [
+                    ['type' => 'exercise', 'name' => 'B', 'duration_seconds' => 10, 'gif_url' => null],
+                ]],
+            ],
+        ];
+        $this->putJson("/routines/{$routineId}", $payload)->assertOk();
+
+        // Por defecto: por vueltas S1,S2,S1,S2
+        $json = $this->getJson("/routines/{$routineId}/json")->assertOk()->json();
+        $this->assertSame(['A', 'B', 'A', 'B'], array_column($json['flat'], 'name'));
+        $this->assertSame(40, $json['total_seconds']);
+
+        // Cambio a frecuencia: S1,S1,S2,S2 (mismo total)
+        $this->put('/settings/timer-mode', ['timer_repeat_mode' => 'frequency'])
+            ->assertRedirect();
+        $json = $this->getJson("/routines/{$routineId}/json")->assertOk()->json();
+        $this->assertSame(['A', 'A', 'B', 'B'], array_column($json['flat'], 'name'));
+        $this->assertSame(40, $json['total_seconds']);
+        $this->assertSame('S1 · vuelta 2/2', $json['flat'][1]['section']);
+
+        // Valor inválido
+        $this->put('/settings/timer-mode', ['timer_repeat_mode' => 'otro'])
+            ->assertSessionHasErrors('timer_repeat_mode');
+
+        // El dashboard muestra los radios con el modo actual
+        $this->get('/')->assertOk()->assertSee('Repetición del timer', false);
+    }
+
+    public function test_beep_volume_setting(): void
+    {        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+
+        // Valor por defecto
+        $this->assertSame(100, auth()->user()->beep_volume);
+
+        $this->put('/settings/volume', ['beep_volume' => 250])->assertRedirect();
+        $this->assertDatabaseHas('users', ['username' => 'admin', 'beep_volume' => 250]);
+
+        // Fuera de rango
+        $this->put('/settings/volume', ['beep_volume' => 350])
+            ->assertSessionHasErrors('beep_volume');
+
+        // El dashboard expone el volumen al JS y la tarjeta
+        $this->get('/')->assertOk()
+            ->assertSee('Volumen del bip', false)
+            ->assertSee('BEEP_VOLUME', false);
+    }
+
+    public function test_timer_style_setting(): void
+    {
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+
+        // Por defecto simple
+        $this->assertSame('simple', auth()->user()->timer_style);
+
+        $this->put('/settings/style', ['timer_style' => 'lista'])->assertRedirect();
+        $this->assertDatabaseHas('users', ['username' => 'admin', 'timer_style' => 'lista']);
+
+        // La 3ª opción ya está habilitada
+        $this->put('/settings/style', ['timer_style' => 'simple_lista_next'])->assertRedirect();
+        $this->assertDatabaseHas('users', ['username' => 'admin', 'timer_style' => 'simple_lista_next']);
+
+        // Valor inválido
+        $this->put('/settings/style', ['timer_style' => 'otro'])
+            ->assertSessionHasErrors('timer_style');
+
+        // El dashboard muestra la tarjeta y expone el estilo al JS
+        $this->get('/')->assertOk()
+            ->assertSee('Estilo timer', false)
+            ->assertSee('TIMER_STYLE', false)
+            ->assertSee('simple_lista_next', false)
+            ->assertSee('Se mostrará el ejercicio actual', false);
+    }
+
+    public function test_settings_status_shows_as_popup(): void
+    {
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+
+        // El mensaje de éxito viaja en sesión y el layout lo convierte en popup
+        $res = $this->put('/settings/volume', ['beep_volume' => 60]);
+        $res->assertRedirect()->assertSessionHas('status', 'Volumen del bip actualizado.');
+        $this->followRedirects($res)->assertSee('flash-status', false);
+    }
+
+    public function test_student_errors_show_as_popup(): void
+    {
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+
+        // Error de validación en Alumnos: redirige y los errores llegan a la vista como popup.
+        // (No se combina assertSessionHasErrors con followRedirects: esa
+        // combinación pierde los errores flasheados con el driver array.)
+        $res = $this->post('/students', ['username' => 'admin', 'password' => 'corta']);
+        $res->assertRedirect();
+        $this->followRedirects($res)->assertOk()->assertSee('flash-errors', false);
+    }
+
+    public function test_logo_upload_rules_and_visibility(): void
+    {
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+
+        // Sin archivo y con tipo inválido -> 422 sin tocar nada
+        $this->postJson('/settings/logo', [])->assertStatus(422);
+        $this->postJson('/settings/logo', [
+            'logo' => \Illuminate\Http\UploadedFile::fake()->create('x.txt', 10, 'text/plain'),
+        ])->assertStatus(422);
+
+        // Sin logo no se rompe nada: favicon por defecto y sin imágenes
+        $this->post('/logout');
+        $this->get('/login')->assertOk()
+            ->assertSee('/favicon.ico', false)
+            ->assertDontSee('<img class="brand-logo"', false);
+
+        // Un alumno no puede subir logo
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+        $this->post('/students', ['username' => 'alumlogo', 'password' => 'clave123']);
+        $this->post('/logout');
+        $this->post('/login', ['username' => 'alumlogo', 'password' => 'clave123'])->assertRedirect('/');
+        $this->post('/settings/logo', [])->assertForbidden();
+        $dash = $this->get('/')->assertOk();
+        $dash->assertDontSee('Subir logo');
+    }
 }

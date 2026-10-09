@@ -38,8 +38,9 @@
         <h3 style="margin-top:0">Mis rutinas</h3>
         <div class="routine-list" id="routine-list">
           @forelse($routines as $r)
+            @php($totalSecs = $r->totalSeconds())
             <div class="routine-item {{ $r->id === $selectedId ? 'selected' : '' }}" data-id="{{ $r->id }}">
-              <span><strong>{{ $r->name }}</strong><br><small class="muted">{{ $r->sections->sum(fn($s) => $s->items->sum('duration_seconds') * max(1, (int) $s->reps)) }}s · {{ $r->sections->count() }} sec.</small></span>
+              <span><strong>{{ $r->name }}</strong><br><small class="muted">{{ intdiv($totalSecs, 60) }}:{{ str_pad($totalSecs % 60, 2, '0', STR_PAD_LEFT) }} total · {{ $r->sections->count() }} sec.</small></span>
             </div>
           @empty
             <p class="muted">Aún no tienes rutinas. Crea la primera arriba.</p>
@@ -95,7 +96,7 @@
           @endforeach
         </select>
       </div>
-      <div style="display:flex;align-items:flex-end;gap:8px">
+      <div class="timer-top-actions" style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap">
         <button class="btn" id="timer-start" type="button">▶ Iniciar</button>
         <button class="btn secondary" id="timer-stop" type="button">⏹ Detener</button>
         <button class="btn secondary" id="timer-fs-btn" type="button" title="Ver solo el timer en pantalla completa">⛶ Pantalla completa</button>
@@ -108,15 +109,27 @@
 
     <div id="timer-fs">
     <div id="timer-run" style="display:none" class="timer-exercise">
-      <div class="timer-stage">
+      <div class="timer-stage" id="timer-stage">
         <div class="timer-section" id="t-section"></div>
-        <div class="timer-time" id="t-time">00:00</div>
-        <div class="timer-name" id="t-name"></div>
-        <img class="timer-gif" id="t-gif" alt="" style="display:none">
-        <video class="timer-gif" id="t-video" style="display:none" loop muted playsinline preload="auto"></video>
-        <div class="timer-next" id="t-next"></div>
-        <div class="progress"><div id="t-progress"></div></div>
-        <div class="muted" id="t-count"></div>
+        <div id="timer-box">
+          <div class="timer-time" id="t-time">00:00</div>
+          <div class="timer-name" id="t-name"></div>
+          <img class="timer-gif" id="t-gif" alt="" style="display:none">
+          <video class="timer-gif" id="t-video" style="display:none" loop muted playsinline preload="auto"></video>
+        </div>
+        <div id="timer-list" style="display:none"></div>
+        <div id="timer-nextbox" style="display:none">
+          <div class="tnext-label">Siguiente</div>
+          <div class="timer-name" id="t-nextname">—</div>
+          <img class="timer-gif" id="t-nextgif" alt="" style="display:none">
+          <video class="timer-gif" id="t-nextvideo" style="display:none" loop muted playsinline preload="auto"></video>
+          <div class="muted" id="t-nextempty" style="display:none">Fin de la rutina</div>
+        </div>
+        <div id="timer-bottom">
+          <div class="timer-next" id="t-next"></div>
+          <div class="progress"><div id="t-progress"></div></div>
+          <div class="muted" id="t-count"></div>
+        </div>
       </div>
       <div class="timer-controls">
         <button class="btn warn" id="timer-pause" type="button">⏸ Pausar</button>
@@ -294,6 +307,69 @@
         <button class="btn" type="submit">Guardar pregunta</button>
       </form>
     </div>
+    <div class="card">
+      <h3 style="margin-top:0">🔁 Repetición del timer</h3>
+      <p class="muted" style="margin-top:0">Cómo se ejecutan las secciones con ×N en el Timer.</p>
+      <form method="POST" action="{{ route('settings.timer_mode') }}">
+        @csrf @method('PUT')
+        <label style="display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;cursor:pointer">
+          <input type="radio" name="timer_repeat_mode" value="rounds" {{ old('timer_repeat_mode', $user->timer_repeat_mode) === 'rounds' ? 'checked' : '' }} style="width:auto;margin-top:4px">
+          <span><strong>Por vueltas</strong> (actual)<br><small class="muted">S1×2, S2×2 → S1, S2, S1, S2</small></span>
+        </label>
+        <label style="display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;cursor:pointer">
+          <input type="radio" name="timer_repeat_mode" value="frequency" {{ old('timer_repeat_mode', $user->timer_repeat_mode) === 'frequency' ? 'checked' : '' }} style="width:auto;margin-top:4px">
+          <span><strong>Por frecuencia</strong><br><small class="muted">S1×2, S2×2 → S1, S1, S2, S2</small></span>
+        </label>
+        <button class="btn" type="submit">Guardar modo</button>
+      </form>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">🔊 Volumen del bip</h3>
+      <p class="muted" style="margin-top:0">Intensidad del sonido de los últimos 5 segundos. 100% es el volumen normal, hasta 300% más fuerte. En 0 se silencia.</p>
+      <form method="POST" action="{{ route('settings.volume') }}">
+        @csrf @method('PUT')
+        <label for="beep_volume">Volumen: <strong id="beep-label">{{ (int) old('beep_volume', $user->beep_volume) }}%</strong></label>
+        <input id="beep_volume" name="beep_volume" type="range" min="0" max="300" step="10" value="{{ (int) old('beep_volume', $user->beep_volume) }}" oninput="document.getElementById('beep-label').textContent = this.value + '%'">
+        <div style="height:8px"></div>
+        <button class="btn" type="submit">Guardar volumen</button>
+      </form>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">🎨 Estilo timer</h3>
+      <p class="muted" style="margin-top:0">Cómo se ve la zona del Timer al ejecutar.</p>
+      <form method="POST" action="{{ route('settings.style') }}">
+        @csrf @method('PUT')
+        <label style="display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;cursor:pointer">
+          <input type="radio" name="timer_style" value="simple" {{ old('timer_style', $user->timer_style) === 'simple' ? 'checked' : '' }} style="width:auto;margin-top:4px">
+          <span><strong>Simple</strong><br><small class="muted">Se mostrará el ejercicio actual.</small></span>
+        </label>
+        <label style="display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;cursor:pointer">
+          <input type="radio" name="timer_style" value="lista" {{ old('timer_style', $user->timer_style) === 'lista' ? 'checked' : '' }} style="width:auto;margin-top:4px">
+          <span><strong>Más Lista</strong><br><small class="muted">El bloque de tiempo/ejercicio/GIF se mueve a la derecha y a la izquierda aparece la lista de la rutina.</small></span>
+        </label>
+        <label style="display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;cursor:pointer">
+          <input type="radio" name="timer_style" value="simple_lista_next" {{ old('timer_style', $user->timer_style) === 'simple_lista_next' ? 'checked' : '' }} style="width:auto;margin-top:4px">
+          <span><strong>Simple más Lista más Sig.Ej</strong><br><small class="muted">3 partes: actual, lista y el siguiente ejercicio con su GIF a la derecha.</small></span>
+        </label>
+        <button class="btn" type="submit">Guardar estilo</button>
+      </form>
+    </div>
+    @if($user->isAdmin())
+    <div class="card">
+      <h3 style="margin-top:0">🖼️ Logo</h3>
+      <p class="muted" style="margin-top:0">Se muestra en el inicio de sesión, junto al menú y en la pestaña del navegador.</p>
+      @if(!empty($logoUrl))
+        <img src="{{ $logoUrl }}" alt="Logo actual" style="max-width:160px;max-height:100px;object-fit:contain;border-radius:8px;background:#000;display:block;margin-bottom:8px">
+      @endif
+      <form method="POST" action="{{ route('settings.logo') }}" enctype="multipart/form-data">
+        @csrf
+        <label for="logo">Archivo (PNG, JPG, WEBP, GIF o SVG, máx 2 MB)</label>
+        <input id="logo" name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" required>
+        <div style="height:8px"></div>
+        <button class="btn" type="submit">Subir logo</button>
+      </form>
+    </div>
+    @endif
   </div>
 </div>
   </div><!-- /dash-main -->
@@ -306,6 +382,8 @@ window.ROUTINES = @json($routines->keyBy('id'));
 window.LIBRARY = @json($library->values());
 window.SELECTED_ID = {{ $selectedId }};
 window.INIT_TAB = @json(request('tab', 'rutinas'));
+window.BEEP_VOLUME = {{ max(0, min(300, (int) $user->beep_volume)) }} / 100;
+window.TIMER_STYLE = @json(in_array($user->timer_style, ['lista', 'simple_lista_next']) ? $user->timer_style : 'simple');
 const CSRF = @json(csrf_token());
 
 // ---------- Menú lateral expandible ----------
@@ -374,7 +452,8 @@ function fmtClock(total) {
 }
 function esc(s){ return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-// Todas las alertas como popup (toast superior, se oculta solo)
+// Todas las alertas como popup. Éxitos: se ocultan solos a los 5s.
+// Errores: quedan fijos hasta pulsar ✕.
 function popup(msg, ok = true) {
   let wrap = document.getElementById('toast-wrap');
   if (!wrap) {
@@ -385,9 +464,21 @@ function popup(msg, ok = true) {
   }
   const t = document.createElement('div');
   t.className = 'toast' + (ok ? '' : ' err');
-  t.textContent = msg;
+  const s = document.createElement('span');
+  s.textContent = msg;
+  t.appendChild(s);
+  if (ok) {
+    setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 350); }, 5000);
+  } else {
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.className = 'toast-x';
+    x.textContent = '✕';
+    x.title = 'Cerrar';
+    x.addEventListener('click', () => t.remove());
+    t.appendChild(x);
+  }
   wrap.appendChild(t);
-  setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 350); }, 3500);
 }
 
 // Anti doble-clic para acciones fetch: deshabilita el botón mientras trabaja
@@ -1089,16 +1180,161 @@ let tickId = null, paused = false, lastWhole = -1, lastBeepSecond = -1, endAt = 
 let audioCtx = null;
 let loadedGifSrc = null;
 let preloadedGifSrc = null;
+let timerListNodes = [], lastHiIdx = -2, lastListSec = null, loadedNextSrc = null;
+
+function timerMode() {
+  // En móvil solo está disponible el modo Simple
+  if (window.matchMedia('(max-width: 700px)').matches) return 'simple';
+  return window.TIMER_STYLE === 'simple_lista_next' ? 'next3'
+    : (window.TIMER_STYLE === 'lista' ? 'lista' : 'simple');
+}
+
+function applyTimerMode() {
+  const stage = document.getElementById('timer-stage');
+  stage.classList.remove('lista', 'next3');
+  const m = timerMode();
+  if (m !== 'simple') {
+    stage.classList.add(m === 'next3' ? 'next3' : 'lista');
+    document.getElementById('timer-list').style.display = '';
+    document.getElementById('timer-nextbox').style.display = m === 'next3' ? '' : 'none';
+  } else {
+    document.getElementById('timer-list').style.display = 'none';
+    document.getElementById('timer-nextbox').style.display = 'none';
+  }
+}
+
+applyTimerMode();
+
+// En móvil solo el modo Simple: bloquear los otros radios en Configuración
+(function () {
+  const mq = window.matchMedia('(max-width: 700px)');
+  function lockStyleRadios() {
+    const mobile = mq.matches;
+    document.querySelectorAll('input[name="timer_style"]').forEach(r => {
+      if (r.value !== 'simple') r.disabled = mobile;
+    });
+    let note = document.getElementById('style-mobile-note');
+    if (mobile && !note) {
+      note = document.createElement('p');
+      note.id = 'style-mobile-note';
+      note.className = 'muted';
+      note.textContent = 'En móvil solo está disponible el modo Simple.';
+      const form = document.querySelector('form[action$="/settings/style"]');
+      if (form) form.prepend(note);
+    } else if (!mobile && note) {
+      note.remove();
+    }
+  }
+  lockStyleRadios();
+  if (mq.addEventListener) mq.addEventListener('change', () => { lockStyleRadios(); applyTimerMode(); });
+  window.addEventListener('resize', applyTimerMode);
+})();
+
+function buildTimerList() {
+  const box = document.getElementById('timer-list');
+  box.innerHTML = '';
+  timerListNodes = [];
+  if (timerMode() === 'simple') return;
+  // Solo la sección donde estamos parados (la vuelta actual)
+  const cur = queue[idx];
+  if (!cur) return;
+  const sec = cur.section || 'Sección';
+  const h = document.createElement('div');
+  h.className = 'tlist-sec active';
+  h.textContent = sec;
+  box.appendChild(h);
+  timerListNodes.push({ el: h, sec: true });
+  queue.forEach((it, i) => {
+    if (it.section !== sec) return;
+    const d = document.createElement('div');
+    d.className = 'tlist-item' + (it.type === 'rest' ? ' rest' : '');
+    d.innerHTML = `<span>${esc(it.name)}</span><span>${fmt(it.duration_seconds)}</span>`;
+    box.appendChild(d);
+    timerListNodes.push({ el: d, sec: false, i });
+  });
+  lastHiIdx = -2;
+  lastListSec = sec;
+}
+
+function renderNextBox() {
+  if (timerMode() !== 'next3') return;
+  const nxt = queue[idx + 1];
+  const nameEl = document.getElementById('t-nextname');
+  const img = document.getElementById('t-nextgif');
+  const vid = document.getElementById('t-nextvideo');
+  const empty = document.getElementById('t-nextempty');
+  if (!nxt) {
+    loadedNextSrc = null;
+    nameEl.textContent = '—';
+    img.removeAttribute('src'); img.style.display = 'none';
+    vid.removeAttribute('src'); vid.style.display = 'none'; vid.pause();
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  nameEl.textContent = nxt.name;
+  if (!nxt.gif_url) {
+    loadedNextSrc = null;
+    img.removeAttribute('src'); img.style.display = 'none';
+    vid.removeAttribute('src'); vid.style.display = 'none'; vid.pause();
+    return;
+  }
+  if (loadedNextSrc === nxt.gif_url) return;
+  loadedNextSrc = nxt.gif_url;
+  const kind = nxt.kind || (/\.(mp4|webm)(\?|#|$)/i.test(nxt.gif_url) ? 'video' : 'image');
+  img.onerror = () => { img.style.display = 'none'; loadedNextSrc = null; };
+  vid.onerror = () => { vid.style.display = 'none'; loadedNextSrc = null; };
+  img.removeAttribute('src');
+  vid.removeAttribute('src');
+  vid.pause();
+  if (kind === 'video') {
+    img.style.display = 'none';
+    vid.src = nxt.gif_url;
+    vid.style.display = 'block';
+    vid.play().catch(() => {});
+  } else {
+    vid.style.display = 'none';
+    img.src = nxt.gif_url;
+    img.style.display = 'block';
+  }
+}
+function highlightTimerList() {
+  if (!timerListNodes.length) return;
+  const cur = queue[idx];
+  // Si cambiamos de sección, reconstruir la lista con la nueva
+  if (!cur || cur.section !== lastListSec) {
+    buildTimerList();
+    if (!timerListNodes.length) return;
+  }
+  if (lastHiIdx === idx) return;
+  lastHiIdx = idx;
+  timerListNodes.forEach(n => {
+    if (n.sec) return;
+    n.el.classList.toggle('current', n.i === idx);
+    n.el.classList.toggle('done', n.i < idx);
+  });
+}
+
+// En iOS el audio nace suspendido: hay que desbloquearlo dentro de un
+// gesto del usuario (clic). Se llama en todos los botones del timer.
+function unlockAudio() {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  } catch(e) {}
+}
 
 function beep(freq = 880, dur = 0.15) {
   try {
+    const vol = (typeof window.BEEP_VOLUME === 'number' ? window.BEEP_VOLUME : 0.8);
+    if (vol <= 0) return;
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const o = audioCtx.createOscillator(), g = audioCtx.createGain();
     o.connect(g); g.connect(audioCtx.destination);
     o.frequency.value = freq;
     g.gain.setValueAtTime(0.001, audioCtx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.5, audioCtx.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.001, 0.5 * vol), audioCtx.currentTime + 0.02);
     g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
     o.start(); o.stop(audioCtx.currentTime + dur + 0.02);
   } catch(e) {}
@@ -1111,12 +1347,15 @@ async function loadRoutine(id) {
 }
 
 function showIdle() {
-  loadedGifSrc = null; preloadedGifSrc = null;
+  loadedGifSrc = null; preloadedGifSrc = null; loadedNextSrc = null;
   tVideo.pause();
+  timerListNodes = []; lastHiIdx = -2; lastListSec = null;
+  document.getElementById('timer-list').innerHTML = '';
   timerRun.style.display = 'none'; timerDone.style.display = 'none'; timerEmpty.style.display = 'block';
 }
 function showRun() {
-  timerEmpty.style.display = 'none'; timerDone.style.display = 'none'; timerRun.style.display = 'block';
+  applyTimerMode();
+  timerEmpty.style.display = 'none'; timerDone.style.display = 'none'; timerRun.style.display = 'flex';
 }
 function showDone() {
   timerRun.style.display = 'none'; timerDone.style.display = 'block';
@@ -1191,6 +1430,8 @@ function renderCurrent() {
   }
   const done = queue.slice(0, idx).reduce((a, b) => a + b.duration_seconds, 0) + (cur.duration_seconds - remaining);
   tProgress.style.width = totalRoutine ? Math.min(100, (done / totalRoutine) * 100) + '%' : '0%';
+  highlightTimerList();
+  renderNextBox();
 }
 
 function tick() {
@@ -1221,6 +1462,8 @@ function startElement(i) {
   remaining = queue[idx].duration_seconds;
   lastWhole = -1; lastBeepSecond = -1;
   loadedGifSrc = null; preloadedGifSrc = null; // el nuevo elemento carga su GIF desde el inicio
+  loadedNextSrc = null;
+  if (i === 0) buildTimerList();
   endAt = Date.now() + remaining * 1000;
   stopTick();
   renderCurrent();
@@ -1228,6 +1471,7 @@ function startElement(i) {
 }
 
 document.getElementById('timer-start').addEventListener('click', () => withBtn(document.getElementById('timer-start'), async () => {
+  unlockAudio();
   const id = timerSelect.value;
   if (!id) { popup('Selecciona una rutina primero.', false); return; }
   try {
@@ -1243,6 +1487,7 @@ document.getElementById('timer-start').addEventListener('click', () => withBtn(d
 }));
 
 document.getElementById('timer-pause').addEventListener('click', (e) => {
+  unlockAudio();
   if (!queue.length) return;
   paused = !paused;
   e.target.textContent = paused ? '▶ Reanudar' : '⏸ Pausar';
@@ -1256,39 +1501,56 @@ document.getElementById('timer-pause').addEventListener('click', (e) => {
 
 document.getElementById('timer-stop').addEventListener('click', () => { stopTick(); queue = []; showIdle(); });
 document.getElementById('timer-restart').addEventListener('click', () => {
+  unlockAudio();
   if (!queue.length) return;
   paused = false; document.getElementById('timer-pause').textContent = '⏸ Pausar';
   showRun(); startElement(0);
 });
 document.getElementById('timer-again').addEventListener('click', () => {
+  unlockAudio();
   if (!queue.length) { showIdle(); return; }
   paused = false; document.getElementById('timer-pause').textContent = '⏸ Pausar';
   showRun(); startElement(0);
 });
-document.getElementById('timer-back').addEventListener('click', () => { stopTick(); queue = []; showIdle(); });
+document.getElementById('timer-back').addEventListener('click', () => { exitTimerFs(); stopTick(); queue = []; showIdle(); });
 document.getElementById('timer-nextbtn').addEventListener('click', () => {
+  unlockAudio();
   if (!queue.length) return;
   if (idx + 1 >= queue.length) { showDone(); return; }
   startElement(idx + 1);
 });
 document.getElementById('timer-prev').addEventListener('click', () => {
+  unlockAudio();
   if (!queue.length) return;
   startElement(Math.max(0, idx - 1));
 });
 
 // ---------- Pantalla completa del timer (solo se ve el timer) ----------
+// En iPhone no hay Fullscreen API: se usa una "pseudo" pantalla completa
+// (el bloque ocupa toda la ventana) con el mismo aspecto.
 const timerFs = document.getElementById('timer-fs');
 const timerFsBtn = document.getElementById('timer-fs-btn');
+const canNativeFs = !!(timerFs.requestFullscreen || timerFs.webkitRequestFullscreen);
 function isFs() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+function isPseudoFs() { return timerFs.classList.contains('pseudo-fs'); }
+function syncFsBtn() {
+  if (timerFsBtn) timerFsBtn.textContent = (isFs() || isPseudoFs()) ? '⛶ Salir de pantalla completa' : '⛶ Pantalla completa';
+}
 async function enterTimerFs() {
   if (!queue.length) {
     popup('Inicia una rutina primero para usar la pantalla completa.', false);
     return;
   }
-  try {
-    if (timerFs.requestFullscreen) await timerFs.requestFullscreen();
-    else if (timerFs.webkitRequestFullscreen) timerFs.webkitRequestFullscreen();
-  } catch(e) {}
+  if (canNativeFs) {
+    try {
+      if (timerFs.requestFullscreen) await timerFs.requestFullscreen();
+      else if (timerFs.webkitRequestFullscreen) timerFs.webkitRequestFullscreen();
+    } catch(e) {}
+  } else {
+    timerFs.classList.add('pseudo-fs');
+    document.body.style.overflow = 'hidden';
+    syncFsBtn();
+  }
 }
 function exitTimerFs() {
   try {
@@ -1297,14 +1559,20 @@ function exitTimerFs() {
       else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
     }
   } catch(e) {}
+  if (isPseudoFs()) {
+    timerFs.classList.remove('pseudo-fs');
+    document.body.style.overflow = '';
+    syncFsBtn();
+  }
 }
-if (timerFsBtn) timerFsBtn.addEventListener('click', () => { isFs() ? exitTimerFs() : enterTimerFs(); });
+if (timerFsBtn) timerFsBtn.addEventListener('click', () => { (isFs() || isPseudoFs()) ? exitTimerFs() : enterTimerFs(); });
 ['timer-fs-exit', 'timer-fs-exit2'].forEach(id => {
   const b = document.getElementById(id);
   if (b) b.addEventListener('click', exitTimerFs);
 });
-document.addEventListener('fullscreenchange', () => {
-  if (timerFsBtn) timerFsBtn.textContent = isFs() ? '⛶ Salir de pantalla completa' : '⛶ Pantalla completa';
+document.addEventListener('fullscreenchange', syncFsBtn);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && isPseudoFs()) exitTimerFs();
 });
 
 // ---------- Pausa automática: el timer no sigue corriendo fuera del Timer ----------

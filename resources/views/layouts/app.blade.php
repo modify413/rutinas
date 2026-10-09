@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="{{ $logoUrl ?? '/favicon.ico' }}">
 <title>@yield('title', 'Rutinas')</title>
 <style>
 :root{--bg:#0a0a0a;--card:#141414;--card2:#1f1f1f;--accent:#e10600;--accent2:#b00500;--warn:#e5e5e5;--danger:#e10600;--text:#f5f5f5;--muted:#a3a3a3;--line:#2a2a2a;--sidebar-w:220px;--sidebar-c:64px}
@@ -10,6 +11,7 @@
 a{color:inherit}
 .topbar{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#000;border-bottom:2px solid var(--accent);position:sticky;top:0;z-index:50}
 .topbar .left{display:flex;align-items:center;gap:10px}
+.brand-logo{height:36px;width:auto;max-width:120px;object-fit:contain;border-radius:8px}
 .icon-btn{background:transparent;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:8px 12px;font-size:1.1rem;cursor:pointer}
 .icon-btn:hover{border-color:var(--accent);color:#fff}
 .topbar .user{font-size:.9rem;color:var(--muted)}
@@ -63,13 +65,54 @@ body.nav-collapsed .dash-main{margin-left:0}
 .badge{display:inline-block;font-size:.72rem;font-weight:800;padding:3px 8px;border-radius:999px;background:#333}
 .badge.exercise{background:#3d0a08;color:#ffb4ab}.badge.rest{background:#262626;color:#e5e5e5}
 .total{font-size:1.3rem;font-weight:800;margin:12px 0}.total span{color:var(--accent)}
-.timer-stage{text-align:center;padding:24px 12px}
-.timer-time{font-size:4.2rem;font-weight:900;letter-spacing:2px;font-variant-numeric:tabular-nums}
-.timer-name{font-size:1.8rem;font-weight:800;margin:8px 0;text-transform:uppercase}
-.timer-section{color:var(--muted);font-size:.9rem}
+.timer-stage{text-align:center;padding:12px}
+/* La zona de ejecución estira y el bloque inferior queda fijo abajo */
+#timer-run{display:flex;flex-direction:column;min-height:calc(100vh - 180px)}
+.timer-stage{flex:1;display:flex;flex-direction:column}
+#timer-box{flex:1;min-height:0}
+.timer-time{font-size:clamp(2.6rem,9vh,4.2rem);font-weight:900;letter-spacing:2px;font-variant-numeric:tabular-nums;line-height:1.05}
+.timer-name{font-size:clamp(1.2rem,3.4vh,1.8rem);font-weight:800;margin:6px 0;text-transform:uppercase}
+.timer-section{font-size:clamp(1.2rem,3.4vh,1.8rem);font-weight:800;margin:6px 0;text-transform:uppercase;color:var(--muted)}
 .timer-next{margin-top:10px;color:var(--muted)}
-.timer-gif{max-width:320px;width:100%;max-height:300px;object-fit:contain;border-radius:12px;margin:12px auto;display:block;background:#000}
+.timer-gif{max-width:320px;width:100%;max-height:30vh;object-fit:contain;border-radius:12px;margin:8px auto;display:block;background:#000}
 .timer-rest .timer-time{color:#fff}.timer-exercise .timer-time{color:var(--accent)}
+/* ---- Modo lista del timer: la lista ocupa el hueco izquierdo, el bloque se mueve a la derecha ---- */
+#timer-list{background:#000;border:1px solid var(--line);border-radius:12px;padding:10px;max-height:46vh;overflow-y:auto;text-align:left}
+.tlist-sec{font-weight:800;margin:10px 0 4px;text-transform:uppercase;font-size:.95rem}
+.tlist-sec:first-child{margin-top:0}
+.tlist-sec.active{color:var(--accent)}
+.tlist-item{display:flex;justify-content:space-between;gap:8px;padding:6px 8px;border-radius:8px;font-size:.9rem}
+.tlist-item.rest{color:var(--muted)}
+.tlist-item.done{opacity:.4}
+.tlist-item.current{background:var(--accent);color:#fff;font-weight:800}
+.timer-stage.lista{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto minmax(0,1fr) auto;gap:16px;align-items:start}
+.timer-stage.lista .timer-section{grid-column:1/-1;grid-row:1}
+.timer-stage.lista #timer-list{display:block;grid-column:2;grid-row:2}
+.timer-stage.lista #timer-box{grid-column:1;grid-row:2;min-width:0;flex:none}
+.timer-stage.lista #timer-bottom{grid-column:1/-1;grid-row:3}
+/* ---- Modo 3 partes: actual | lista | siguiente ---- */
+#timer-nextbox{background:#000;border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center;min-width:0}
+.tnext-label{font-weight:800;text-transform:uppercase;color:var(--muted);font-size:.9rem;letter-spacing:1px}
+#timer-nextbox .timer-name{font-size:clamp(1.1rem,3vh,1.5rem)}
+.timer-stage.next3{display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:auto minmax(0,1fr) auto;gap:16px;align-items:start}
+.timer-stage.next3 .timer-section{grid-column:1/-1;grid-row:1}
+.timer-stage.next3 #timer-box{grid-column:1;grid-row:2;min-width:0;flex:none}
+.timer-stage.next3 #timer-list{display:block;grid-column:2;grid-row:2}
+.timer-stage.next3 #timer-nextbox{display:block;grid-column:3;grid-row:2}
+.timer-stage.next3 #timer-bottom{grid-column:1/-1;grid-row:3}
+@media(max-width:700px){
+  .timer-stage.lista{grid-template-columns:1fr;grid-template-rows:auto auto auto auto}
+  .timer-stage.lista .timer-section{grid-row:1}
+  .timer-stage.lista #timer-box{grid-column:1;grid-row:2}
+  .timer-stage.lista #timer-list{grid-column:1;grid-row:3}
+  .timer-stage.lista #timer-bottom{grid-column:1;grid-row:4}
+  .timer-stage.next3{grid-template-columns:1fr;grid-template-rows:auto auto auto auto auto}
+  .timer-stage.next3 .timer-section{grid-row:1}
+  .timer-stage.next3 #timer-box{grid-column:1;grid-row:2}
+  .timer-stage.next3 #timer-list{grid-column:1;grid-row:3}
+  .timer-stage.next3 #timer-nextbox{grid-column:1;grid-row:4}
+  .timer-stage.next3 #timer-bottom{grid-column:1;grid-row:5}
+}
 .progress{height:10px;background:#000;border:1px solid var(--line);border-radius:999px;overflow:hidden;margin:12px 0}
 .progress>div{height:100%;background:var(--accent);width:0%}
 .timer-controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:14px}
@@ -95,14 +138,17 @@ body{overflow-x:hidden}
   input,select,textarea{font-size:16px} /* evita zoom automático al enfocar en iOS */
   .btn{min-height:44px}
   .timer-stage{padding:16px 4px}
-  .timer-time{font-size:clamp(3rem,19vw,4.2rem)}
+  .timer-time{font-size:clamp(2.4rem,min(19vw,10vh),4.2rem)}
   .timer-name{font-size:1.3rem}
+  .timer-section{font-size:1.3rem}
   .finished{font-size:1.5rem}
   .total{font-size:1.1rem}
   .section{padding:10px}
   .section-head{flex-wrap:wrap}
   .section-head input{flex:1 1 100%}
   .timer-gif{max-height:240px}
+  .timer-top-actions>*{min-width:0;flex:1 1 calc(50% - 8px)}
+  .timer-top-actions #timer-fs-btn{flex:1 1 100%}
 }
 /* ---- Biblioteca: botones estándar + modal ---- */
 .lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:8px}
@@ -113,19 +159,34 @@ body{overflow-x:hidden}
 .modal-scrim.open{display:block}
 .modal{max-width:560px;margin:5vh auto;border-top:3px solid var(--accent)}
 /* ---- Popups (toasts) para todas las alertas ---- */
-.toast-wrap{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:400;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:min(92vw,480px)}
-.toast{background:#000;border:1px solid #e5e5e5;color:var(--text);border-radius:12px;padding:12px 16px;font-weight:600;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.6);opacity:1;transition:opacity .3s ease;width:100%}
+.toast-wrap{position:fixed;top:14px;left:calc(50% + 110px);transform:translateX(-50%);z-index:400;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:min(92vw,480px)}
+body.nav-collapsed .toast-wrap{left:50%}
+@media(max-width:900px){.toast-wrap{left:50%}}
+.toast{background:#000;border:1px solid #e5e5e5;color:var(--text);border-radius:12px;padding:12px 16px;font-weight:600;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.6);opacity:1;transition:opacity .3s ease;width:100%;pointer-events:auto;display:flex;gap:10px;align-items:center;justify-content:center}
+.toast.err{border-color:var(--accent);background:#1a0505}
+.toast-x{background:transparent;border:1px solid var(--accent);color:#fff;border-radius:8px;cursor:pointer;padding:2px 10px;font-weight:800;flex:none}
 .toast.err{border-color:var(--accent);background:#1a0505}
 .toast.out{opacity:0}
 /* ---- Pantalla completa del timer: solo se ve el timer ---- */
 #timer-fs{background:var(--card);border-radius:14px}
-#timer-fs:fullscreen{background:#000;border-radius:0;padding:32px 16px;overflow-y:auto;display:flex;flex-direction:column;justify-content:center}
-#timer-fs:fullscreen .timer-time{font-size:clamp(5rem,22vw,11rem)}
-#timer-fs:fullscreen .timer-name{font-size:clamp(1.6rem,6vw,3rem)}
-#timer-fs:fullscreen .timer-gif{max-width:min(480px,80vw);max-height:40vh}
+#timer-fs:fullscreen{background:#000;border-radius:0;padding:12px 16px;overflow-y:auto;display:flex;flex-direction:column;justify-content:center}
+#timer-fs:fullscreen #timer-run{min-height:calc(100vh - 40px)}
+#timer-fs:fullscreen .timer-time{font-size:clamp(3.5rem,16vh,11rem)}
+#timer-fs:fullscreen .timer-name{font-size:clamp(1.2rem,4vh,3rem)}
+#timer-fs:fullscreen .timer-section{font-size:clamp(1.2rem,4vh,3rem)}
+#timer-fs:fullscreen .timer-gif{max-width:min(480px,80vw);max-height:34vh}
 #timer-fs:fullscreen .no-fs{display:none !important}
 .only-fs{display:none !important}
 #timer-fs:fullscreen .only-fs{display:inline-block !important}
+/* Pseudo pantalla completa para iPhone (sin Fullscreen API): mismo aspecto */
+#timer-fs.pseudo-fs{position:fixed;inset:0;z-index:300;background:#000;border-radius:0;padding:12px 16px;overflow-y:auto;display:flex;flex-direction:column;justify-content:center}
+#timer-fs.pseudo-fs #timer-run{min-height:calc(100vh - 40px)}
+#timer-fs.pseudo-fs .timer-time{font-size:clamp(3.5rem,16vh,11rem)}
+#timer-fs.pseudo-fs .timer-name{font-size:clamp(1.2rem,4vh,3rem)}
+#timer-fs.pseudo-fs .timer-section{font-size:clamp(1.2rem,4vh,3rem)}
+#timer-fs.pseudo-fs .timer-gif{max-width:min(480px,80vw);max-height:34vh}
+#timer-fs.pseudo-fs .no-fs{display:none !important}
+#timer-fs.pseudo-fs .only-fs{display:inline-block !important}
 </style>
 @yield('head')
 </head>
@@ -135,6 +196,9 @@ body{overflow-x:hidden}
     @auth
       <button class="icon-btn" id="nav-toggle" type="button" title="Mostrar/ocultar menú">☰</button>
     @endauth
+    @if(!empty($logoUrl))
+      <img class="brand-logo" src="{{ $logoUrl }}" alt="Logo">
+    @endif
   </div>
   <div>
     @auth
@@ -148,13 +212,43 @@ body{overflow-x:hidden}
 </div>
 <div class="nav-scrim" id="nav-scrim"></div>
 <div class="container">
-  @if(session('status'))<div class="alert">{{ session('status') }}</div>@endif
+  @if(session('status'))
+  <div class="alert" id="flash-status">{{ session('status') }}</div>
+  <script>
+  (function () {
+    function show() {
+      // Si la página tiene popups (dashboard), mostrar como toast de éxito y quitar el recuadro
+      if (typeof popup === 'function') {
+        popup(@json(session('status')));
+        var el = document.getElementById('flash-status');
+        if (el) el.remove();
+      }
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', show);
+    else show();
+  })();
+  </script>
+  @endif
   @if($errors->any())
-    <div class="error">
+    <div class="error" id="flash-errors">
       <ul style="margin:0;padding-left:18px">
         @foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach
       </ul>
     </div>
+    <script>
+    (function () {
+      function show() {
+        // Si la página tiene popups (dashboard), mostrar errores como toast fijo y quitar el recuadro
+        if (typeof popup === 'function') {
+          @json($errors->all()).forEach(m => popup(m, false));
+          var el = document.getElementById('flash-errors');
+          if (el) el.remove();
+        }
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', show);
+      else show();
+    })();
+    </script>
   @endif
   @yield('content')
 </div>

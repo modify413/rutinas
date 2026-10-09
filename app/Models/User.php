@@ -19,6 +19,9 @@ class User extends Authenticatable
         'created_by',
         'security_question',
         'security_answer',
+        'timer_repeat_mode',
+        'beep_volume',
+        'timer_style',
     ];
 
     protected $hidden = [

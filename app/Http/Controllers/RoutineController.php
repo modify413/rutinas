@@ -145,30 +145,31 @@ class RoutineController extends Controller
         $this->authorizeRoutine($routine);
         $routine->load(['sections.items']);
 
-        // Las repeticiones se ejecutan por vueltas: primero todas las
-        // secciones, luego se repite la vuelta completa.
-        // Ej: S1×2, S2×2 => S1, S2, S1, S2
-        $maxReps = max(1, (int) $routine->sections->max('reps'));
+        // Modo "rounds" (actual): por vueltas, primero todas las secciones
+        // y luego se repite la vuelta completa. Ej: S1×2, S2×2 => S1, S2, S1, S2
+        // Modo "frequency": cada sección se repite seguida. Ej: S1×2, S2×2 => S1, S1, S2, S2
+        $mode = auth()->user()->timer_repeat_mode === 'frequency' ? 'frequency' : 'rounds';
         $flat = [];
-        for ($r = 1; $r <= $maxReps; $r++) {
+        if ($mode === 'frequency') {
             foreach ($routine->sections as $section) {
                 $reps = max(1, (int) $section->reps);
-                if ($reps < $r) {
-                    continue;
+                for ($r = 1; $r <= $reps; $r++) {
+                    foreach ($section->items as $item) {
+                        $flat[] = $this->flatItem($section, $item, $r, $reps);
+                    }
                 }
-                foreach ($section->items as $item) {
-                    $gifUrl = $item->gif_path
-                        ? GifUploadController::temporaryUrl($item->gif_path)
-                        : $item->gif_url;
-                    $flat[] = [
-                        'id' => $item->id,
-                        'section' => $section->title.($reps > 1 ? " · vuelta {$r}/{$reps}" : ''),
-                        'type' => $item->type,
-                        'name' => $item->name,
-                        'duration_seconds' => (int) $item->duration_seconds,
-                        'gif_url' => $gifUrl,
-                        'kind' => GifUploadController::mediaKind($gifUrl ?? $item->gif_path),
-                    ];
+            }
+        } else {
+            $maxReps = max(1, (int) $routine->sections->max('reps'));
+            for ($r = 1; $r <= $maxReps; $r++) {
+                foreach ($routine->sections as $section) {
+                    $reps = max(1, (int) $section->reps);
+                    if ($reps < $r) {
+                        continue;
+                    }
+                    foreach ($section->items as $item) {
+                        $flat[] = $this->flatItem($section, $item, $r, $reps);
+                    }
                 }
             }
         }
@@ -192,6 +193,23 @@ class RoutineController extends Controller
             'flat' => $flat,
             'total_seconds' => collect($flat)->sum('duration_seconds'),
         ]);
+    }
+
+    private function flatItem($section, $item, int $round, int $reps): array
+    {
+        $gifUrl = $item->gif_path
+            ? GifUploadController::temporaryUrl($item->gif_path)
+            : $item->gif_url;
+
+        return [
+            'id' => $item->id,
+            'section' => $section->title.($reps > 1 ? " · vuelta {$round}/{$reps}" : ''),
+            'type' => $item->type,
+            'name' => $item->name,
+            'duration_seconds' => (int) $item->duration_seconds,
+            'gif_url' => $gifUrl,
+            'kind' => GifUploadController::mediaKind($gifUrl ?? $item->gif_path),
+        ];
     }
 
     private function authorizeRoutine(Routine $routine): void
