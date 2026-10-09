@@ -431,4 +431,14 @@ class WorkoutTest extends TestCase
             ->assertSee('TIMER_STYLE', false)
             ->assertSee('simple_lista_next', false);
     }
+
+    public function test_settings_status_shows_as_popup(): void
+    {
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+
+        // El mensaje de éxito viaja en sesión y el layout lo convierte en popup
+        $res = $this->put('/settings/volume', ['beep_volume' => 60]);
+        $res->assertRedirect()->assertSessionHas('status', 'Volumen del bip actualizado.');
+        $this->followRedirects($res)->assertSee('flash-status', false);
+    }
 }

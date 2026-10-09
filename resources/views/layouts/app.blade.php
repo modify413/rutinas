@@ -196,7 +196,23 @@ body.nav-collapsed .toast-wrap{left:50%}
 </div>
 <div class="nav-scrim" id="nav-scrim"></div>
 <div class="container">
-  @if(session('status'))<div class="alert">{{ session('status') }}</div>@endif
+  @if(session('status'))
+  <div class="alert" id="flash-status">{{ session('status') }}</div>
+  <script>
+  (function () {
+    function show() {
+      // Si la página tiene popups (dashboard), mostrar como toast de éxito y quitar el recuadro
+      if (typeof popup === 'function') {
+        popup(@json(session('status')));
+        var el = document.getElementById('flash-status');
+        if (el) el.remove();
+      }
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', show);
+    else show();
+  })();
+  </script>
+  @endif
   @if($errors->any())
     <div class="error">
       <ul style="margin:0;padding-left:18px">
