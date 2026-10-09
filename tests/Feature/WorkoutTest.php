@@ -441,4 +441,16 @@ class WorkoutTest extends TestCase
         $res->assertRedirect()->assertSessionHas('status', 'Volumen del bip actualizado.');
         $this->followRedirects($res)->assertSee('flash-status', false);
     }
+
+    public function test_student_errors_show_as_popup(): void
+    {
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+
+        // Error de validación en Alumnos: redirige y los errores llegan a la vista como popup.
+        // (No se combina assertSessionHasErrors con followRedirects: esa
+        // combinación pierde los errores flasheados con el driver array.)
+        $res = $this->post('/students', ['username' => 'admin', 'password' => 'corta']);
+        $res->assertRedirect();
+        $this->followRedirects($res)->assertOk()->assertSee('flash-errors', false);
+    }
 }

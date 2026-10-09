@@ -214,11 +214,25 @@ body.nav-collapsed .toast-wrap{left:50%}
   </script>
   @endif
   @if($errors->any())
-    <div class="error">
+    <div class="error" id="flash-errors">
       <ul style="margin:0;padding-left:18px">
         @foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach
       </ul>
     </div>
+    <script>
+    (function () {
+      function show() {
+        // Si la página tiene popups (dashboard), mostrar errores como toast fijo y quitar el recuadro
+        if (typeof popup === 'function') {
+          @json($errors->all()).forEach(m => popup(m, false));
+          var el = document.getElementById('flash-errors');
+          if (el) el.remove();
+        }
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', show);
+      else show();
+    })();
+    </script>
   @endif
   @yield('content')
 </div>
