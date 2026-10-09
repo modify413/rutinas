@@ -30,6 +30,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/settings/password', [SettingsController::class, 'updatePassword'])->name('settings.password');
     Route::put('/settings/security', [SettingsController::class, 'updateSecurity'])->name('settings.security');
     Route::put('/settings/timer-mode', [SettingsController::class, 'updateTimerMode'])->name('settings.timer_mode');
+    Route::put('/settings/volume', [SettingsController::class, 'updateVolume'])->name('settings.volume');
 
     // Solo el profesor administra rutinas, biblioteca y alumnos
     Route::middleware(EnsureAdmin::class)->group(function () {

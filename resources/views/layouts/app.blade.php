@@ -66,7 +66,7 @@ body.nav-collapsed .dash-main{margin-left:0}
 .timer-stage{text-align:center;padding:24px 12px}
 .timer-time{font-size:4.2rem;font-weight:900;letter-spacing:2px;font-variant-numeric:tabular-nums}
 .timer-name{font-size:1.8rem;font-weight:800;margin:8px 0;text-transform:uppercase}
-.timer-section{color:var(--muted);font-size:.9rem}
+.timer-section{font-size:1.8rem;font-weight:800;margin:8px 0;text-transform:uppercase;color:var(--muted)}
 .timer-next{margin-top:10px;color:var(--muted)}
 .timer-gif{max-width:320px;width:100%;max-height:300px;object-fit:contain;border-radius:12px;margin:12px auto;display:block;background:#000}
 .timer-rest .timer-time{color:#fff}.timer-exercise .timer-time{color:var(--accent)}
@@ -97,6 +97,7 @@ body{overflow-x:hidden}
   .timer-stage{padding:16px 4px}
   .timer-time{font-size:clamp(3rem,19vw,4.2rem)}
   .timer-name{font-size:1.3rem}
+  .timer-section{font-size:1.3rem}
   .finished{font-size:1.5rem}
   .total{font-size:1.1rem}
   .section{padding:10px}
@@ -122,6 +123,7 @@ body{overflow-x:hidden}
 #timer-fs:fullscreen{background:#000;border-radius:0;padding:32px 16px;overflow-y:auto;display:flex;flex-direction:column;justify-content:center}
 #timer-fs:fullscreen .timer-time{font-size:clamp(5rem,22vw,11rem)}
 #timer-fs:fullscreen .timer-name{font-size:clamp(1.6rem,6vw,3rem)}
+#timer-fs:fullscreen .timer-section{font-size:clamp(1.6rem,6vw,3rem)}
 #timer-fs:fullscreen .timer-gif{max-width:min(480px,80vw);max-height:40vh}
 #timer-fs:fullscreen .no-fs{display:none !important}
 .only-fs{display:none !important}

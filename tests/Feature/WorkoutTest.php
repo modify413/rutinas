@@ -387,4 +387,24 @@ class WorkoutTest extends TestCase
         // El dashboard muestra los radios con el modo actual
         $this->get('/')->assertOk()->assertSee('Repetición del timer', false);
     }
+
+    public function test_beep_volume_setting(): void
+    {
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+
+        // Valor por defecto
+        $this->assertSame(80, auth()->user()->beep_volume);
+
+        $this->put('/settings/volume', ['beep_volume' => 30])->assertRedirect();
+        $this->assertDatabaseHas('users', ['username' => 'admin', 'beep_volume' => 30]);
+
+        // Fuera de rango
+        $this->put('/settings/volume', ['beep_volume' => 150])
+            ->assertSessionHasErrors('beep_volume');
+
+        // El dashboard expone el volumen al JS y la tarjeta
+        $this->get('/')->assertOk()
+            ->assertSee('Volumen del bip', false)
+            ->assertSee('BEEP_VOLUME', false);
+    }
 }

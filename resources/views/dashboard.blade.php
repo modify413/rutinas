@@ -310,6 +310,17 @@
         <button class="btn" type="submit">Guardar modo</button>
       </form>
     </div>
+    <div class="card">
+      <h3 style="margin-top:0">🔊 Volumen del bip</h3>
+      <p class="muted" style="margin-top:0">Intensidad del sonido de los últimos 5 segundos. En 0 se silencia.</p>
+      <form method="POST" action="{{ route('settings.volume') }}">
+        @csrf @method('PUT')
+        <label for="beep_volume">Volumen: <strong id="beep-label">{{ (int) old('beep_volume', $user->beep_volume) }}%</strong></label>
+        <input id="beep_volume" name="beep_volume" type="range" min="0" max="100" step="5" value="{{ (int) old('beep_volume', $user->beep_volume) }}" oninput="document.getElementById('beep-label').textContent = this.value + '%'">
+        <div style="height:8px"></div>
+        <button class="btn" type="submit">Guardar volumen</button>
+      </form>
+    </div>
   </div>
 </div>
   </div><!-- /dash-main -->
@@ -322,6 +333,7 @@ window.ROUTINES = @json($routines->keyBy('id'));
 window.LIBRARY = @json($library->values());
 window.SELECTED_ID = {{ $selectedId }};
 window.INIT_TAB = @json(request('tab', 'rutinas'));
+window.BEEP_VOLUME = {{ max(0, min(100, (int) $user->beep_volume)) }} / 100;
 const CSRF = @json(csrf_token());
 
 // ---------- Menú lateral expandible ----------
@@ -1108,13 +1120,15 @@ let preloadedGifSrc = null;
 
 function beep(freq = 880, dur = 0.15) {
   try {
+    const vol = (typeof window.BEEP_VOLUME === 'number' ? window.BEEP_VOLUME : 0.8);
+    if (vol <= 0) return;
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const o = audioCtx.createOscillator(), g = audioCtx.createGain();
     o.connect(g); g.connect(audioCtx.destination);
     o.frequency.value = freq;
     g.gain.setValueAtTime(0.001, audioCtx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.5, audioCtx.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.001, 0.5 * vol), audioCtx.currentTime + 0.02);
     g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
     o.start(); o.stop(audioCtx.currentTime + dur + 0.02);
   } catch(e) {}

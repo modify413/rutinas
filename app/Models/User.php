@@ -20,6 +20,7 @@ class User extends Authenticatable
         'security_question',
         'security_answer',
         'timer_repeat_mode',
+        'beep_volume',
     ];
 
     protected $hidden = [

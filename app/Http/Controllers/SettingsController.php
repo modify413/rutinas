@@ -69,4 +69,17 @@ class SettingsController extends Controller
 
         return back()->with('status', 'Repetición del timer actualizada.');
     }
+
+    public function updateVolume(Request $request)
+    {
+        $data = $request->validate([
+            'beep_volume' => ['required', 'integer', 'min:0', 'max:100'],
+        ], [], [
+            'beep_volume' => 'volumen',
+        ]);
+
+        $request->user()->update(['beep_volume' => (int) $data['beep_volume']]);
+
+        return back()->with('status', 'Volumen del bip actualizado.');
+    }
 }
