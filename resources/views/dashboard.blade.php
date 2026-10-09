@@ -1141,7 +1141,7 @@ let tickId = null, paused = false, lastWhole = -1, lastBeepSecond = -1, endAt = 
 let audioCtx = null;
 let loadedGifSrc = null;
 let preloadedGifSrc = null;
-let timerListNodes = [], lastHiIdx = -2;
+let timerListNodes = [], lastHiIdx = -2, lastListSec = null;
 
 if (window.TIMER_STYLE === 'lista') {
   document.getElementById('timer-stage').classList.add('lista');
@@ -1153,16 +1153,17 @@ function buildTimerList() {
   box.innerHTML = '';
   timerListNodes = [];
   if (window.TIMER_STYLE !== 'lista') return;
-  let lastSec = null;
+  // Solo la sección donde estamos parados (la vuelta actual)
+  const cur = queue[idx];
+  if (!cur) return;
+  const sec = cur.section || 'Sección';
+  const h = document.createElement('div');
+  h.className = 'tlist-sec active';
+  h.textContent = sec;
+  box.appendChild(h);
+  timerListNodes.push({ el: h, sec: true });
   queue.forEach((it, i) => {
-    if (it.section !== lastSec) {
-      lastSec = it.section;
-      const h = document.createElement('div');
-      h.className = 'tlist-sec';
-      h.textContent = it.section || 'Sección';
-      box.appendChild(h);
-      timerListNodes.push({ el: h, sec: true });
-    }
+    if (it.section !== sec) return;
     const d = document.createElement('div');
     d.className = 'tlist-item' + (it.type === 'rest' ? ' rest' : '');
     d.innerHTML = `<span>${esc(it.name)}</span><span>${fmt(it.duration_seconds)}</span>`;
@@ -1170,22 +1171,23 @@ function buildTimerList() {
     timerListNodes.push({ el: d, sec: false, i });
   });
   lastHiIdx = -2;
+  lastListSec = sec;
 }
 
 function highlightTimerList() {
-  if (!timerListNodes.length || lastHiIdx === idx) return;
+  if (!timerListNodes.length) return;
+  const cur = queue[idx];
+  // Si cambiamos de sección, reconstruir la lista con la nueva
+  if (!cur || cur.section !== lastListSec) {
+    buildTimerList();
+    if (!timerListNodes.length) return;
+  }
+  if (lastHiIdx === idx) return;
   lastHiIdx = idx;
-  let curHeader = null;
   timerListNodes.forEach(n => {
-    if (n.sec) {
-      n.el.classList.remove('active');
-      curHeader = n.el;
-    } else {
-      const isCur = n.i === idx;
-      n.el.classList.toggle('current', isCur);
-      n.el.classList.toggle('done', n.i < idx);
-      if (isCur && curHeader) curHeader.classList.add('active');
-    }
+    if (n.sec) return;
+    n.el.classList.toggle('current', n.i === idx);
+    n.el.classList.toggle('done', n.i < idx);
   });
 }
 
@@ -1214,6 +1216,8 @@ async function loadRoutine(id) {
 function showIdle() {
   loadedGifSrc = null; preloadedGifSrc = null;
   tVideo.pause();
+  timerListNodes = []; lastHiIdx = -2; lastListSec = null;
+  document.getElementById('timer-list').innerHTML = '';
   timerRun.style.display = 'none'; timerDone.style.display = 'none'; timerEmpty.style.display = 'block';
 }
 function showRun() {

@@ -81,8 +81,8 @@ body.nav-collapsed .dash-main{margin-left:0}
 .tlist-item.current{background:var(--accent);color:#fff;font-weight:800}
 .timer-stage.lista{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
 .timer-stage.lista .timer-section{grid-column:1/-1}
-.timer-stage.lista #timer-list{display:block;grid-column:1;grid-row:2}
-.timer-stage.lista #timer-box{grid-column:2;grid-row:2;min-width:0}
+.timer-stage.lista #timer-list{display:block;grid-column:2;grid-row:2}
+.timer-stage.lista #timer-box{grid-column:1;grid-row:2;min-width:0}
 .timer-stage.lista .timer-next,.timer-stage.lista .progress,.timer-stage.lista #t-count{grid-column:1/-1}
 @media(max-width:700px){
   .timer-stage.lista{grid-template-columns:1fr}
