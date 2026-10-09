@@ -88,12 +88,28 @@ body.nav-collapsed .dash-main{margin-left:0}
 .timer-stage.lista #timer-list{display:block;grid-column:2;grid-row:2}
 .timer-stage.lista #timer-box{grid-column:1;grid-row:2;min-width:0;flex:none}
 .timer-stage.lista #timer-bottom{grid-column:1/-1;grid-row:3}
+/* ---- Modo 3 partes: actual | lista | siguiente ---- */
+#timer-nextbox{background:#000;border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center;min-width:0}
+.tnext-label{font-weight:800;text-transform:uppercase;color:var(--muted);font-size:.9rem;letter-spacing:1px}
+#timer-nextbox .timer-name{font-size:clamp(1.1rem,3vh,1.5rem)}
+.timer-stage.next3{display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:auto minmax(0,1fr) auto;gap:16px;align-items:start}
+.timer-stage.next3 .timer-section{grid-column:1/-1;grid-row:1}
+.timer-stage.next3 #timer-box{grid-column:1;grid-row:2;min-width:0;flex:none}
+.timer-stage.next3 #timer-list{display:block;grid-column:2;grid-row:2}
+.timer-stage.next3 #timer-nextbox{display:block;grid-column:3;grid-row:2}
+.timer-stage.next3 #timer-bottom{grid-column:1/-1;grid-row:3}
 @media(max-width:700px){
   .timer-stage.lista{grid-template-columns:1fr;grid-template-rows:auto auto auto auto}
   .timer-stage.lista .timer-section{grid-row:1}
   .timer-stage.lista #timer-box{grid-column:1;grid-row:2}
   .timer-stage.lista #timer-list{grid-column:1;grid-row:3}
   .timer-stage.lista #timer-bottom{grid-column:1;grid-row:4}
+  .timer-stage.next3{grid-template-columns:1fr;grid-template-rows:auto auto auto auto auto}
+  .timer-stage.next3 .timer-section{grid-row:1}
+  .timer-stage.next3 #timer-box{grid-column:1;grid-row:2}
+  .timer-stage.next3 #timer-list{grid-column:1;grid-row:3}
+  .timer-stage.next3 #timer-nextbox{grid-column:1;grid-row:4}
+  .timer-stage.next3 #timer-bottom{grid-column:1;grid-row:5}
 }
 .progress{height:10px;background:#000;border:1px solid var(--line);border-radius:999px;overflow:hidden;margin:12px 0}
 .progress>div{height:100%;background:var(--accent);width:0%}

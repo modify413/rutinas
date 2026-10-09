@@ -85,10 +85,8 @@ class SettingsController extends Controller
 
     public function updateStyle(Request $request)
     {
-        // La 3ª opción ("simple_lista_next") existe en la vista pero está
-        // deshabilitada: se rechaza aquí también si alguien la fuerza.
         $data = $request->validate([
-            'timer_style' => ['required', 'string', 'in:simple,lista'],
+            'timer_style' => ['required', 'string', 'in:simple,lista,simple_lista_next'],
         ], [], [
             'timer_style' => 'estilo del timer',
         ]);

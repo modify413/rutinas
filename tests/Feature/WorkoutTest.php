@@ -417,9 +417,11 @@ class WorkoutTest extends TestCase
         $this->put('/settings/style', ['timer_style' => 'lista'])->assertRedirect();
         $this->assertDatabaseHas('users', ['username' => 'admin', 'timer_style' => 'lista']);
 
-        // La 3ª opción (deshabilitada) se rechaza
-        $this->put('/settings/style', ['timer_style' => 'simple_lista_next'])
-            ->assertSessionHasErrors('timer_style');
+        // La 3ª opción ya está habilitada
+        $this->put('/settings/style', ['timer_style' => 'simple_lista_next'])->assertRedirect();
+        $this->assertDatabaseHas('users', ['username' => 'admin', 'timer_style' => 'simple_lista_next']);
+
+        // Valor inválido
         $this->put('/settings/style', ['timer_style' => 'otro'])
             ->assertSessionHasErrors('timer_style');
 

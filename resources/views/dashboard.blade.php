@@ -117,6 +117,13 @@
           <video class="timer-gif" id="t-video" style="display:none" loop muted playsinline preload="auto"></video>
         </div>
         <div id="timer-list" style="display:none"></div>
+        <div id="timer-nextbox" style="display:none">
+          <div class="tnext-label">Siguiente</div>
+          <div class="timer-name" id="t-nextname">—</div>
+          <img class="timer-gif" id="t-nextgif" alt="" style="display:none">
+          <video class="timer-gif" id="t-nextvideo" style="display:none" loop muted playsinline preload="auto"></video>
+          <div class="muted" id="t-nextempty" style="display:none">Fin de la rutina</div>
+        </div>
         <div id="timer-bottom">
           <div class="timer-next" id="t-next"></div>
           <div class="progress"><div id="t-progress"></div></div>
@@ -339,9 +346,9 @@
           <input type="radio" name="timer_style" value="lista" {{ old('timer_style', $user->timer_style) === 'lista' ? 'checked' : '' }} style="width:auto;margin-top:4px">
           <span><strong>Más Lista</strong><br><small class="muted">El bloque de tiempo/ejercicio/GIF se mueve a la derecha y a la izquierda aparece la lista de la rutina.</small></span>
         </label>
-        <label style="display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;cursor:not-allowed;opacity:.45">
-          <input type="radio" name="timer_style" value="simple_lista_next" disabled style="width:auto;margin-top:4px">
-          <span><strong>Simple más Lista más Sig.Ej</strong><br><small class="muted">Próximamente.</small></span>
+        <label style="display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;cursor:pointer">
+          <input type="radio" name="timer_style" value="simple_lista_next" {{ old('timer_style', $user->timer_style) === 'simple_lista_next' ? 'checked' : '' }} style="width:auto;margin-top:4px">
+          <span><strong>Simple más Lista más Sig.Ej</strong><br><small class="muted">3 partes: actual, lista y el siguiente ejercicio con su GIF a la derecha.</small></span>
         </label>
         <button class="btn" type="submit">Guardar estilo</button>
       </form>
@@ -359,7 +366,7 @@ window.LIBRARY = @json($library->values());
 window.SELECTED_ID = {{ $selectedId }};
 window.INIT_TAB = @json(request('tab', 'rutinas'));
 window.BEEP_VOLUME = {{ max(0, min(300, (int) $user->beep_volume)) }} / 100;
-window.TIMER_STYLE = @json($user->timer_style === 'lista' ? 'lista' : 'simple');
+window.TIMER_STYLE = @json(in_array($user->timer_style, ['lista', 'simple_lista_next']) ? $user->timer_style : 'simple');
 const CSRF = @json(csrf_token());
 
 // ---------- Menú lateral expandible ----------
@@ -1143,7 +1150,19 @@ let tickId = null, paused = false, lastWhole = -1, lastBeepSecond = -1, endAt = 
 let audioCtx = null;
 let loadedGifSrc = null;
 let preloadedGifSrc = null;
-let timerListNodes = [], lastHiIdx = -2, lastListSec = null;
+let timerListNodes = [], lastHiIdx = -2, lastListSec = null, loadedNextSrc = null;
+
+function timerMode() {
+  return window.TIMER_STYLE === 'simple_lista_next' ? 'next3'
+    : (window.TIMER_STYLE === 'lista' ? 'lista' : 'simple');
+}
+
+if (timerMode() !== 'simple') {
+  const stage = document.getElementById('timer-stage');
+  stage.classList.add(timerMode() === 'next3' ? 'next3' : 'lista');
+  document.getElementById('timer-list').style.display = '';
+  if (timerMode() === 'next3') document.getElementById('timer-nextbox').style.display = '';
+}
 
 if (window.TIMER_STYLE === 'lista') {
   document.getElementById('timer-stage').classList.add('lista');
@@ -1154,7 +1173,7 @@ function buildTimerList() {
   const box = document.getElementById('timer-list');
   box.innerHTML = '';
   timerListNodes = [];
-  if (window.TIMER_STYLE !== 'lista') return;
+  if (timerMode() === 'simple') return;
   // Solo la sección donde estamos parados (la vuelta actual)
   const cur = queue[idx];
   if (!cur) return;
@@ -1176,6 +1195,48 @@ function buildTimerList() {
   lastListSec = sec;
 }
 
+function renderNextBox() {
+  if (timerMode() !== 'next3') return;
+  const nxt = queue[idx + 1];
+  const nameEl = document.getElementById('t-nextname');
+  const img = document.getElementById('t-nextgif');
+  const vid = document.getElementById('t-nextvideo');
+  const empty = document.getElementById('t-nextempty');
+  if (!nxt) {
+    loadedNextSrc = null;
+    nameEl.textContent = '—';
+    img.removeAttribute('src'); img.style.display = 'none';
+    vid.removeAttribute('src'); vid.style.display = 'none'; vid.pause();
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  nameEl.textContent = nxt.name;
+  if (!nxt.gif_url) {
+    loadedNextSrc = null;
+    img.removeAttribute('src'); img.style.display = 'none';
+    vid.removeAttribute('src'); vid.style.display = 'none'; vid.pause();
+    return;
+  }
+  if (loadedNextSrc === nxt.gif_url) return;
+  loadedNextSrc = nxt.gif_url;
+  const kind = nxt.kind || (/\.(mp4|webm)(\?|#|$)/i.test(nxt.gif_url) ? 'video' : 'image');
+  img.onerror = () => { img.style.display = 'none'; loadedNextSrc = null; };
+  vid.onerror = () => { vid.style.display = 'none'; loadedNextSrc = null; };
+  img.removeAttribute('src');
+  vid.removeAttribute('src');
+  vid.pause();
+  if (kind === 'video') {
+    img.style.display = 'none';
+    vid.src = nxt.gif_url;
+    vid.style.display = 'block';
+    vid.play().catch(() => {});
+  } else {
+    vid.style.display = 'none';
+    img.src = nxt.gif_url;
+    img.style.display = 'block';
+  }
+}
 function highlightTimerList() {
   if (!timerListNodes.length) return;
   const cur = queue[idx];
@@ -1216,7 +1277,7 @@ async function loadRoutine(id) {
 }
 
 function showIdle() {
-  loadedGifSrc = null; preloadedGifSrc = null;
+  loadedGifSrc = null; preloadedGifSrc = null; loadedNextSrc = null;
   tVideo.pause();
   timerListNodes = []; lastHiIdx = -2; lastListSec = null;
   document.getElementById('timer-list').innerHTML = '';
@@ -1299,6 +1360,7 @@ function renderCurrent() {
   const done = queue.slice(0, idx).reduce((a, b) => a + b.duration_seconds, 0) + (cur.duration_seconds - remaining);
   tProgress.style.width = totalRoutine ? Math.min(100, (done / totalRoutine) * 100) + '%' : '0%';
   highlightTimerList();
+  renderNextBox();
 }
 
 function tick() {
@@ -1329,6 +1391,7 @@ function startElement(i) {
   remaining = queue[idx].duration_seconds;
   lastWhole = -1; lastBeepSecond = -1;
   loadedGifSrc = null; preloadedGifSrc = null; // el nuevo elemento carga su GIF desde el inicio
+  loadedNextSrc = null;
   if (i === 0) buildTimerList();
   endAt = Date.now() + remaining * 1000;
   stopTick();
