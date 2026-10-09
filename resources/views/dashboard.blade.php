@@ -1283,6 +1283,15 @@ function highlightTimerList() {
   });
 }
 
+// En iOS el audio nace suspendido: hay que desbloquearlo dentro de un
+// gesto del usuario (clic). Se llama en todos los botones del timer.
+function unlockAudio() {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  } catch(e) {}
+}
+
 function beep(freq = 880, dur = 0.15) {
   try {
     const vol = (typeof window.BEEP_VOLUME === 'number' ? window.BEEP_VOLUME : 0.8);
@@ -1429,6 +1438,7 @@ function startElement(i) {
 }
 
 document.getElementById('timer-start').addEventListener('click', () => withBtn(document.getElementById('timer-start'), async () => {
+  unlockAudio();
   const id = timerSelect.value;
   if (!id) { popup('Selecciona una rutina primero.', false); return; }
   try {
@@ -1444,6 +1454,7 @@ document.getElementById('timer-start').addEventListener('click', () => withBtn(d
 }));
 
 document.getElementById('timer-pause').addEventListener('click', (e) => {
+  unlockAudio();
   if (!queue.length) return;
   paused = !paused;
   e.target.textContent = paused ? '▶ Reanudar' : '⏸ Pausar';
@@ -1457,39 +1468,56 @@ document.getElementById('timer-pause').addEventListener('click', (e) => {
 
 document.getElementById('timer-stop').addEventListener('click', () => { stopTick(); queue = []; showIdle(); });
 document.getElementById('timer-restart').addEventListener('click', () => {
+  unlockAudio();
   if (!queue.length) return;
   paused = false; document.getElementById('timer-pause').textContent = '⏸ Pausar';
   showRun(); startElement(0);
 });
 document.getElementById('timer-again').addEventListener('click', () => {
+  unlockAudio();
   if (!queue.length) { showIdle(); return; }
   paused = false; document.getElementById('timer-pause').textContent = '⏸ Pausar';
   showRun(); startElement(0);
 });
 document.getElementById('timer-back').addEventListener('click', () => { stopTick(); queue = []; showIdle(); });
 document.getElementById('timer-nextbtn').addEventListener('click', () => {
+  unlockAudio();
   if (!queue.length) return;
   if (idx + 1 >= queue.length) { showDone(); return; }
   startElement(idx + 1);
 });
 document.getElementById('timer-prev').addEventListener('click', () => {
+  unlockAudio();
   if (!queue.length) return;
   startElement(Math.max(0, idx - 1));
 });
 
 // ---------- Pantalla completa del timer (solo se ve el timer) ----------
+// En iPhone no hay Fullscreen API: se usa una "pseudo" pantalla completa
+// (el bloque ocupa toda la ventana) con el mismo aspecto.
 const timerFs = document.getElementById('timer-fs');
 const timerFsBtn = document.getElementById('timer-fs-btn');
+const canNativeFs = !!(timerFs.requestFullscreen || timerFs.webkitRequestFullscreen);
 function isFs() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+function isPseudoFs() { return timerFs.classList.contains('pseudo-fs'); }
+function syncFsBtn() {
+  if (timerFsBtn) timerFsBtn.textContent = (isFs() || isPseudoFs()) ? '⛶ Salir de pantalla completa' : '⛶ Pantalla completa';
+}
 async function enterTimerFs() {
   if (!queue.length) {
     popup('Inicia una rutina primero para usar la pantalla completa.', false);
     return;
   }
-  try {
-    if (timerFs.requestFullscreen) await timerFs.requestFullscreen();
-    else if (timerFs.webkitRequestFullscreen) timerFs.webkitRequestFullscreen();
-  } catch(e) {}
+  if (canNativeFs) {
+    try {
+      if (timerFs.requestFullscreen) await timerFs.requestFullscreen();
+      else if (timerFs.webkitRequestFullscreen) timerFs.webkitRequestFullscreen();
+    } catch(e) {}
+  } else {
+    timerFs.classList.add('pseudo-fs');
+    document.body.style.overflow = 'hidden';
+    syncFsBtn();
+  }
 }
 function exitTimerFs() {
   try {
@@ -1498,14 +1526,20 @@ function exitTimerFs() {
       else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
     }
   } catch(e) {}
+  if (isPseudoFs()) {
+    timerFs.classList.remove('pseudo-fs');
+    document.body.style.overflow = '';
+    syncFsBtn();
+  }
 }
-if (timerFsBtn) timerFsBtn.addEventListener('click', () => { isFs() ? exitTimerFs() : enterTimerFs(); });
+if (timerFsBtn) timerFsBtn.addEventListener('click', () => { (isFs() || isPseudoFs()) ? exitTimerFs() : enterTimerFs(); });
 ['timer-fs-exit', 'timer-fs-exit2'].forEach(id => {
   const b = document.getElementById(id);
   if (b) b.addEventListener('click', exitTimerFs);
 });
-document.addEventListener('fullscreenchange', () => {
-  if (timerFsBtn) timerFsBtn.textContent = isFs() ? '⛶ Salir de pantalla completa' : '⛶ Pantalla completa';
+document.addEventListener('fullscreenchange', syncFsBtn);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && isPseudoFs()) exitTimerFs();
 });
 
 // ---------- Pausa automática: el timer no sigue corriendo fuera del Timer ----------

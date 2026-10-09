@@ -178,6 +178,15 @@ body.nav-collapsed .toast-wrap{left:50%}
 #timer-fs:fullscreen .no-fs{display:none !important}
 .only-fs{display:none !important}
 #timer-fs:fullscreen .only-fs{display:inline-block !important}
+/* Pseudo pantalla completa para iPhone (sin Fullscreen API): mismo aspecto */
+#timer-fs.pseudo-fs{position:fixed;inset:0;z-index:300;background:#000;border-radius:0;padding:12px 16px;overflow-y:auto;display:flex;flex-direction:column;justify-content:center}
+#timer-fs.pseudo-fs #timer-run{min-height:calc(100vh - 40px)}
+#timer-fs.pseudo-fs .timer-time{font-size:clamp(3.5rem,16vh,11rem)}
+#timer-fs.pseudo-fs .timer-name{font-size:clamp(1.2rem,4vh,3rem)}
+#timer-fs.pseudo-fs .timer-section{font-size:clamp(1.2rem,4vh,3rem)}
+#timer-fs.pseudo-fs .timer-gif{max-width:min(480px,80vw);max-height:34vh}
+#timer-fs.pseudo-fs .no-fs{display:none !important}
+#timer-fs.pseudo-fs .only-fs{display:inline-block !important}
 </style>
 @yield('head')
 </head>
