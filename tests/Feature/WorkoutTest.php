@@ -234,6 +234,9 @@ class WorkoutTest extends TestCase
         $this->assertSame('video', \App\Http\Controllers\GifUploadController::mediaKind('https://x/y.webm?t=1'));
         $this->assertSame('image', \App\Http\Controllers\GifUploadController::mediaKind('anim.gif'));
         $this->assertSame('image', \App\Http\Controllers\GifUploadController::mediaKind(null));
+        $this->assertSame('youtube', \App\Http\Controllers\GifUploadController::mediaKind('https://www.youtube.com/watch?v=dQw4w9WgXcQ'));
+        $this->assertSame('youtube', \App\Http\Controllers\GifUploadController::mediaKind('https://youtu.be/dQw4w9WgXcQ'));
+        $this->assertSame('youtube', \App\Http\Controllers\GifUploadController::mediaKind('https://www.youtube.com/shorts/dQw4w9WgXcQ'));
 
         $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
 

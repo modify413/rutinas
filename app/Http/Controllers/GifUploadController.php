@@ -33,7 +33,12 @@ class GifUploadController extends Controller
 
     public static function mediaKind(?string $pathOrUrl): string
     {
-        return (bool) preg_match('/\.(mp4|webm)(\?|#|$)/i', (string) $pathOrUrl)
+        $s = (string) $pathOrUrl;
+        if (preg_match('#(?:youtube\.com/(?:watch|embed|shorts|live)|youtu\.be/)#i', $s)) {
+            return 'youtube';
+        }
+
+        return (bool) preg_match('/\.(mp4|webm)(\?|#|$)/i', $s)
             ? 'video'
             : 'image';
     }
