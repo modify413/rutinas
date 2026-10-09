@@ -38,8 +38,9 @@
         <h3 style="margin-top:0">Mis rutinas</h3>
         <div class="routine-list" id="routine-list">
           @forelse($routines as $r)
+            @php($totalSecs = $r->totalSeconds())
             <div class="routine-item {{ $r->id === $selectedId ? 'selected' : '' }}" data-id="{{ $r->id }}">
-              <span><strong>{{ $r->name }}</strong><br><small class="muted">{{ $r->sections->sum(fn($s) => $s->items->sum('duration_seconds') * max(1, (int) $s->reps)) }}s · {{ $r->sections->count() }} sec.</small></span>
+              <span><strong>{{ $r->name }}</strong><br><small class="muted">{{ intdiv($totalSecs, 60) }}:{{ str_pad($totalSecs % 60, 2, '0', STR_PAD_LEFT) }} total · {{ $r->sections->count() }} sec.</small></span>
             </div>
           @empty
             <p class="muted">Aún no tienes rutinas. Crea la primera arriba.</p>
