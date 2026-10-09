@@ -435,7 +435,8 @@ function fmtClock(total) {
 }
 function esc(s){ return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-// Todas las alertas como popup (toast superior, se oculta solo)
+// Todas las alertas como popup. Éxitos: se ocultan solos a los 5s.
+// Errores: quedan fijos hasta pulsar ✕.
 function popup(msg, ok = true) {
   let wrap = document.getElementById('toast-wrap');
   if (!wrap) {
@@ -446,9 +447,21 @@ function popup(msg, ok = true) {
   }
   const t = document.createElement('div');
   t.className = 'toast' + (ok ? '' : ' err');
-  t.textContent = msg;
+  const s = document.createElement('span');
+  s.textContent = msg;
+  t.appendChild(s);
+  if (ok) {
+    setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 350); }, 5000);
+  } else {
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.className = 'toast-x';
+    x.textContent = '✕';
+    x.title = 'Cerrar';
+    x.addEventListener('click', () => t.remove());
+    t.appendChild(x);
+  }
   wrap.appendChild(t);
-  setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 350); }, 5000);
 }
 
 // Anti doble-clic para acciones fetch: deshabilita el botón mientras trabaja
@@ -645,7 +658,7 @@ document.getElementById('lib-save').addEventListener('click', () => withBtn(docu
     document.getElementById('lib-gif').value = '';
     libClearFile();
     libStatus.textContent = '';
-    alert('✅ Ejercicio guardado en tu biblioteca.');
+    popup('✅ Ejercicio guardado en tu biblioteca.');
     renderLibrary();
   } catch (err) { popup('❌ ' + err.message, false); }
 }));
@@ -714,7 +727,7 @@ document.getElementById('lib-add-sel').addEventListener('click', () => {
   const box = libTargetBox();
   if (!box) return;
   libAddEntry(entry, box);
-  alert(`✅ "${entry.name}" agregado. Ábrelo en "Crear rutinas" y guarda la rutina.`);
+  popup(`✅ "${entry.name}" agregado. Ábrelo en "Crear rutinas" y guarda la rutina.`);
 });
 
 document.getElementById('lib-del-sel').addEventListener('click', () => withBtn(document.getElementById('lib-del-sel'), async () => {
@@ -725,7 +738,7 @@ document.getElementById('lib-del-sel').addEventListener('click', () => withBtn(d
     if (!res.ok) throw new Error('Error ' + res.status);
     window.LIBRARY = window.LIBRARY.filter(x => x.id !== libSelected);
     libSelected = null;
-    alert('Ejercicio eliminado de la biblioteca.');
+    popup('Ejercicio eliminado de la biblioteca.');
     renderLibrary();
     libResetForm();
   } catch (err) { popup('❌ ' + err.message, false); }
@@ -768,7 +781,7 @@ document.getElementById('lib-update').addEventListener('click', () => withBtn(do
     renderLibrary();
     libResetForm();
     libClearFile();
-    alert('✅ Ejercicio actualizado.');
+    popup('✅ Ejercicio actualizado.');
   } catch (err) { popup('❌ ' + err.message, false); }
 }));
 
@@ -840,7 +853,7 @@ document.getElementById('libm-add').addEventListener('click', () => {
   }
   libAddEntry(entry, libModalSection.querySelector('[data-items]'));
   closeLibModal();
-  alert(`✅ "${entry.name}" agregado a la sección. No olvides guardar la rutina.`);
+  popup(`✅ "${entry.name}" agregado a la sección. No olvides guardar la rutina.`);
 });
 
 document.getElementById('routine-list').addEventListener('click', e => {
@@ -910,7 +923,7 @@ sectionsEl.addEventListener('click', e => {
         const saved = await res.json();
         window.LIBRARY.push(saved);
         window.LIBRARY.sort((a, b) => a.name.localeCompare(b.name));
-        alert(`✅ "${saved.name}" guardado en tu biblioteca.`);
+        popup(`✅ "${saved.name}" guardado en tu biblioteca.`);
         renderLibrary();
       })
       .catch(err => { popup('❌ ' + err.message, false); })
@@ -1117,7 +1130,7 @@ document.getElementById('btn-save').addEventListener('click', () => withBtn(docu
     window.ROUTINES[saved.id] = saved;
     selectedId = saved.id;
     renderEditor();
-    alert('✅ Rutina guardada en SQLite.');
+    popup('✅ Rutina guardada en SQLite.');
     refreshTimerOptions();
   } catch (err) {
     popup('❌ ' + err.message, false);

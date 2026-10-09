@@ -158,7 +158,9 @@ body{overflow-x:hidden}
 .toast-wrap{position:fixed;top:14px;left:calc(50% + 110px);transform:translateX(-50%);z-index:400;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:min(92vw,480px)}
 body.nav-collapsed .toast-wrap{left:50%}
 @media(max-width:900px){.toast-wrap{left:50%}}
-.toast{background:#000;border:1px solid #e5e5e5;color:var(--text);border-radius:12px;padding:12px 16px;font-weight:600;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.6);opacity:1;transition:opacity .3s ease;width:100%}
+.toast{background:#000;border:1px solid #e5e5e5;color:var(--text);border-radius:12px;padding:12px 16px;font-weight:600;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.6);opacity:1;transition:opacity .3s ease;width:100%;pointer-events:auto;display:flex;gap:10px;align-items:center;justify-content:center}
+.toast.err{border-color:var(--accent);background:#1a0505}
+.toast-x{background:transparent;border:1px solid var(--accent);color:#fff;border-radius:8px;cursor:pointer;padding:2px 10px;font-weight:800;flex:none}
 .toast.err{border-color:var(--accent);background:#1a0505}
 .toast.out{opacity:0}
 /* ---- Pantalla completa del timer: solo se ve el timer ---- */
