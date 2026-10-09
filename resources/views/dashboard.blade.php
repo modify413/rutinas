@@ -1479,7 +1479,7 @@ document.getElementById('timer-again').addEventListener('click', () => {
   paused = false; document.getElementById('timer-pause').textContent = '⏸ Pausar';
   showRun(); startElement(0);
 });
-document.getElementById('timer-back').addEventListener('click', () => { stopTick(); queue = []; showIdle(); });
+document.getElementById('timer-back').addEventListener('click', () => { exitTimerFs(); stopTick(); queue = []; showIdle(); });
 document.getElementById('timer-nextbtn').addEventListener('click', () => {
   unlockAudio();
   if (!queue.length) return;
