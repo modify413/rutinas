@@ -95,7 +95,7 @@
           @endforeach
         </select>
       </div>
-      <div style="display:flex;align-items:flex-end;gap:8px">
+      <div class="timer-top-actions" style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap">
         <button class="btn" id="timer-start" type="button">▶ Iniciar</button>
         <button class="btn secondary" id="timer-stop" type="button">⏹ Detener</button>
         <button class="btn secondary" id="timer-fs-btn" type="button" title="Ver solo el timer en pantalla completa">⛶ Pantalla completa</button>

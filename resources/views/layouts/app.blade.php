@@ -147,6 +147,8 @@ body{overflow-x:hidden}
   .section-head{flex-wrap:wrap}
   .section-head input{flex:1 1 100%}
   .timer-gif{max-height:240px}
+  .timer-top-actions>*{min-width:0;flex:1 1 calc(50% - 8px)}
+  .timer-top-actions #timer-fs-btn{flex:1 1 100%}
 }
 /* ---- Biblioteca: botones estándar + modal ---- */
 .lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:8px}
