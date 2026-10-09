@@ -8,7 +8,7 @@ if [ "${DB_CONNECTION:-sqlite}" = "sqlite" ]; then
   [ -f "$DB_DATABASE" ] || touch "$DB_DATABASE"
 fi
 
-mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache bootstrap/cache
+mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache bootstrap/cache storage/app/uploads
 
 # Generar APP_KEY si no viene definida como variable de entorno
 if [ -z "$APP_KEY" ]; then

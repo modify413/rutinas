@@ -269,6 +269,55 @@ class WorkoutTest extends TestCase
         $this->assertSame('image', $json['flat'][1]['kind']);
     }
 
+    public function test_local_disk_upload_and_media_route(): void
+    {
+        config()->set('media.disk', 'local');
+        \Illuminate\Support\Facades\Storage::fake('uploads');
+
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+
+        // Subida OK en disco local
+        $res = $this->postJson('/uploads/gif', [
+            'gif' => \Illuminate\Http\UploadedFile::fake()->create('ej.gif', 100, 'image/gif'),
+        ])->assertCreated();
+        $path = $res->json('path');
+        $this->assertStringStartsWith('local/', $path);
+        $this->assertSame('image', $res->json('kind'));
+        \Illuminate\Support\Facades\Storage::disk('uploads')->assertExists(substr($path, 6));
+
+        // publicUrl resuelve a /media
+        $this->assertSame(
+            url('/media/'.substr($path, 6)),
+            \App\Http\Controllers\GifUploadController::publicUrl($path)
+        );
+        $this->assertNull(\App\Http\Controllers\GifUploadController::publicUrl(null));
+
+        // /media sirve el archivo solo a autenticados
+        $name = substr($path, 6);
+        $this->get("/media/{$name}")->assertOk();
+        $this->get('/media/../.env')->assertNotFound();
+        $this->get('/media/no-existe.gif')->assertNotFound();
+        $this->post('/logout');
+        $this->get("/media/{$name}")->assertRedirect('/login');
+
+        // El timer resuelve gif_path local a /media
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+        $this->post('/routines', ['name' => 'Local']);
+        $routineId = \App\Models\Routine::where('name', 'Local')->first()->id;
+        $this->putJson("/routines/{$routineId}", [
+            'name' => 'Local',
+            'sections' => [[
+                'title' => 'S1',
+                'items' => [[
+                    'type' => 'exercise', 'name' => 'E',
+                    'duration_seconds' => 10, 'gif_url' => null, 'gif_path' => $path,
+                ]],
+            ]],
+        ])->assertOk();
+        $json = $this->getJson("/routines/{$routineId}/json")->assertOk()->json();
+        $this->assertStringContainsString('/media/', $json['flat'][0]['gif_url']);
+    }
+
     public function test_student_sees_only_teacher_routines_and_timer(): void
     {
         $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);

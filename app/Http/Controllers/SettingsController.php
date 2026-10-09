@@ -109,6 +109,34 @@ class SettingsController extends Controller
         ]);
 
         $file = $request->file('logo');
+
+        // Disco local (sin internet): misma carpeta que el resto de medios.
+        if (config('media.disk') === 'local') {
+            try {
+                $stored = \Illuminate\Support\Facades\Storage::disk('uploads')->putFile('logos', $file);
+                if (! $stored) {
+                    throw new \RuntimeException('write');
+                }
+                $key = 'local/'.$stored;
+            } catch (\Throwable $e) {
+                report($e);
+
+                return back()->withErrors(['logo' => 'No se pudo guardar el logo.']);
+            }
+
+            try {
+                if (($old = \App\Models\AppSetting::logoPath()) && $old !== $key
+                    && \App\Http\Controllers\GifUploadController::isLocalPath($old)) {
+                    \Illuminate\Support\Facades\Storage::disk('uploads')->delete(substr($old, strlen('local/')));
+                }
+            } catch (\Throwable) {
+            }
+
+            \App\Models\AppSetting::setLogo($key);
+
+            return back()->with('status', 'Logo actualizado.');
+        }
+
         $key = 'logos/logo-'.\Illuminate\Support\Str::uuid().'.'.$file->getClientOriginalExtension();
 
         try {
