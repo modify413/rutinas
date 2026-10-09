@@ -45,6 +45,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/library/{libraryExercise}', [LibraryExerciseController::class, 'destroy'])->name('library.destroy');
 
         Route::put('/settings/username', [SettingsController::class, 'updateUsername'])->name('settings.username');
+        Route::post('/settings/logo', [SettingsController::class, 'updateLogo'])->name('settings.logo');
 
         Route::post('/students', [StudentController::class, 'store'])->name('students.store');
         Route::put('/students/{student}/password', [StudentController::class, 'resetPassword'])->name('students.password');

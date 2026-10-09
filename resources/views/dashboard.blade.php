@@ -353,6 +353,22 @@
         <button class="btn" type="submit">Guardar estilo</button>
       </form>
     </div>
+    @if($user->isAdmin())
+    <div class="card">
+      <h3 style="margin-top:0">🖼️ Logo</h3>
+      <p class="muted" style="margin-top:0">Se muestra en el inicio de sesión, junto al menú y en la pestaña del navegador.</p>
+      @if(!empty($logoUrl))
+        <img src="{{ $logoUrl }}" alt="Logo actual" style="max-width:160px;max-height:100px;object-fit:contain;border-radius:8px;background:#000;display:block;margin-bottom:8px">
+      @endif
+      <form method="POST" action="{{ route('settings.logo') }}" enctype="multipart/form-data">
+        @csrf
+        <label for="logo">Archivo (PNG, JPG, WEBP, GIF o SVG, máx 2 MB)</label>
+        <input id="logo" name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" required>
+        <div style="height:8px"></div>
+        <button class="btn" type="submit">Subir logo</button>
+      </form>
+    </div>
+    @endif
   </div>
 </div>
   </div><!-- /dash-main -->

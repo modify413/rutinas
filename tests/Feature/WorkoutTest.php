@@ -453,4 +453,30 @@ class WorkoutTest extends TestCase
         $res->assertRedirect();
         $this->followRedirects($res)->assertOk()->assertSee('flash-errors', false);
     }
+
+    public function test_logo_upload_rules_and_visibility(): void
+    {
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+
+        // Sin archivo y con tipo inválido -> 422 sin tocar nada
+        $this->postJson('/settings/logo', [])->assertStatus(422);
+        $this->postJson('/settings/logo', [
+            'logo' => \Illuminate\Http\UploadedFile::fake()->create('x.txt', 10, 'text/plain'),
+        ])->assertStatus(422);
+
+        // Sin logo no se rompe nada: favicon por defecto y sin imágenes
+        $this->post('/logout');
+        $this->get('/login')->assertOk()
+            ->assertSee('/favicon.ico', false)
+            ->assertDontSee('<img class="brand-logo"', false);
+
+        // Un alumno no puede subir logo
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+        $this->post('/students', ['username' => 'alumlogo', 'password' => 'clave123']);
+        $this->post('/logout');
+        $this->post('/login', ['username' => 'alumlogo', 'password' => 'clave123'])->assertRedirect('/');
+        $this->post('/settings/logo', [])->assertForbidden();
+        $dash = $this->get('/')->assertOk();
+        $dash->assertDontSee('Subir logo');
+    }
 }

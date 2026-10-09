@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="{{ $logoUrl ?? '/favicon.ico' }}">
 <title>@yield('title', 'Rutinas')</title>
 <style>
 :root{--bg:#0a0a0a;--card:#141414;--card2:#1f1f1f;--accent:#e10600;--accent2:#b00500;--warn:#e5e5e5;--danger:#e10600;--text:#f5f5f5;--muted:#a3a3a3;--line:#2a2a2a;--sidebar-w:220px;--sidebar-c:64px}
@@ -10,6 +11,7 @@
 a{color:inherit}
 .topbar{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#000;border-bottom:2px solid var(--accent);position:sticky;top:0;z-index:50}
 .topbar .left{display:flex;align-items:center;gap:10px}
+.brand-logo{height:36px;width:auto;max-width:120px;object-fit:contain;border-radius:8px}
 .icon-btn{background:transparent;border:1px solid var(--line);color:var(--text);border-radius:10px;padding:8px 12px;font-size:1.1rem;cursor:pointer}
 .icon-btn:hover{border-color:var(--accent);color:#fff}
 .topbar .user{font-size:.9rem;color:var(--muted)}
@@ -183,6 +185,9 @@ body.nav-collapsed .toast-wrap{left:50%}
     @auth
       <button class="icon-btn" id="nav-toggle" type="button" title="Mostrar/ocultar menú">☰</button>
     @endauth
+    @if(!empty($logoUrl))
+      <img class="brand-logo" src="{{ $logoUrl }}" alt="Logo">
+    @endif
   </div>
   <div>
     @auth

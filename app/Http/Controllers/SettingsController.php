@@ -84,8 +84,7 @@ class SettingsController extends Controller
     }
 
     public function updateStyle(Request $request)
-    {
-        $data = $request->validate([
+    {        $data = $request->validate([
             'timer_style' => ['required', 'string', 'in:simple,lista,simple_lista_next'],
         ], [], [
             'timer_style' => 'estilo del timer',
@@ -94,5 +93,50 @@ class SettingsController extends Controller
         $request->user()->update(['timer_style' => $data['timer_style']]);
 
         return back()->with('status', 'Estilo del timer actualizado.');
+    }
+
+    public function updateLogo(Request $request)
+    {
+        $request->validate([
+            'logo' => [
+                'required', 'file', 'max:2048',
+                'mimetypes:image/png,image/jpeg,image/webp,image/gif,image/svg+xml',
+            ],
+        ], [
+            'logo.required' => 'Elige un archivo de imagen.',
+            'logo.max' => 'El logo supera los 2 MB.',
+            'logo.mimetypes' => 'Formato no permitido. Usa PNG, JPG, WEBP, GIF o SVG.',
+        ]);
+
+        $file = $request->file('logo');
+        $key = 'logos/logo-'.\Illuminate\Support\Str::uuid().'.'.$file->getClientOriginalExtension();
+
+        try {
+            \App\Http\Controllers\GifUploadController::client()->putObject([
+                'Bucket' => \App\Http\Controllers\GifUploadController::bucket(),
+                'Key' => $key,
+                'Body' => fopen($file->getRealPath(), 'rb'),
+                'ContentType' => $file->getMimeType(),
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->withErrors(['logo' => 'No se pudo subir el logo al bucket.']);
+        }
+
+        // Borrar el anterior para no acumular archivos (sin romper si falla)
+        try {
+            if (($old = \App\Models\AppSetting::logoPath()) && $old !== $key) {
+                \App\Http\Controllers\GifUploadController::client()->deleteObject([
+                    'Bucket' => \App\Http\Controllers\GifUploadController::bucket(),
+                    'Key' => $old,
+                ]);
+            }
+        } catch (\Throwable) {
+        }
+
+        \App\Models\AppSetting::setLogo($key);
+
+        return back()->with('status', 'Logo actualizado.');
     }
 }
