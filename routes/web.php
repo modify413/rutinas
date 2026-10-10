@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.attempt');
+Route::get('/logo', [MediaController::class, 'logo'])->name('logo.show');
 
 Route::get('/recuperar', [PasswordRecoveryController::class, 'showForgot'])->name('password.forgot');
 Route::post('/recuperar', [PasswordRecoveryController::class, 'askQuestion'])->name('password.ask');

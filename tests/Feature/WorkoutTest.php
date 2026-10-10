@@ -534,4 +534,25 @@ class WorkoutTest extends TestCase
         $dash = $this->get('/')->assertOk();
         $dash->assertDontSee('Subir logo');
     }
+
+    public function test_logo_public_route_does_not_break_login(): void
+    {
+        // Sin logo: 404
+        $this->get('/logo')->assertNotFound();
+
+        // Logo local visible como invitado y en el login
+        \Illuminate\Support\Facades\Storage::fake('uploads');
+        $stored = \Illuminate\Support\Facades\Storage::disk('uploads')->putFile(
+            'logos',
+            \Illuminate\Http\UploadedFile::fake()->create('logo.png', 50, 'image/png')
+        );
+        \App\Models\AppSetting::setLogo('local/'.$stored);
+
+        $this->get('/logo')->assertOk();
+        $this->get('/login')->assertOk()->assertSee('/logo', false);
+
+        // Tras login va al dashboard, NO a la imagen
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123'])->assertRedirect('/');
+        $this->get('/')->assertOk();
+    }
 }
