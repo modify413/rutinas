@@ -63,29 +63,6 @@ class GifUploadController extends Controller
         ], ['gif' => 'archivo']);
 
         $file = $request->file('gif');
-
-        // Disco local (sin internet): se guarda en storage/app/uploads y se
-        // sirve por /media. Las rutas locales llevan prefijo "local/".
-        if (config('media.disk') === 'local') {
-            try {
-                $stored = \Illuminate\Support\Facades\Storage::disk('uploads')->putFile('', $file);
-                if (! $stored) {
-                    throw new \RuntimeException('write');
-                }
-                $path = 'local/'.$stored;
-
-                return response()->json([
-                    'path' => $path,
-                    'url' => static::publicUrl($path),
-                    'kind' => static::mediaKind($path),
-                ], 201);
-            } catch (\Throwable $e) {
-                report($e);
-
-                return response()->json(['message' => 'No se pudo guardar el archivo.'], 500);
-            }
-        }
-
         $key = 'media-'.Str::uuid().'.'.$file->getClientOriginalExtension();
 
         try {
@@ -110,7 +87,7 @@ class GifUploadController extends Controller
 
     public static function temporaryUrl(?string $path): ?string
     {
-        if (! $path || str_starts_with($path, 'local/')) {
+        if (! $path) {
             return null;
         }
         try {
@@ -123,23 +100,5 @@ class GifUploadController extends Controller
         } catch (\Throwable) {
             return null;
         }
-    }
-
-    /** URL pública del medio, sea del bucket o del disco local. */
-    public static function publicUrl(?string $path): ?string
-    {
-        if (! $path) {
-            return null;
-        }
-        if (str_starts_with($path, 'local/')) {
-            return url('/media/'.substr($path, strlen('local/')));
-        }
-
-        return static::temporaryUrl($path);
-    }
-
-    public static function isLocalPath(?string $path): bool
-    {
-        return is_string($path) && str_starts_with($path, 'local/');
     }
 }

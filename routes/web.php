@@ -4,7 +4,6 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GifUploadController;
 use App\Http\Controllers\LibraryExerciseController;
-use App\Http\Controllers\MediaController;
 use App\Http\Controllers\PasswordRecoveryController;
 use App\Http\Controllers\RoutineController;
 use App\Http\Controllers\SettingsController;
@@ -27,7 +26,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
     Route::get('/routines/{routine}/json', [RoutineController::class, 'json'])->name('routines.json');
-    Route::get('/media/{path}', [MediaController::class, 'show'])->where('path', '.*')->name('media.show');
 
     Route::put('/settings/password', [SettingsController::class, 'updatePassword'])->name('settings.password');
     Route::put('/settings/security', [SettingsController::class, 'updateSecurity'])->name('settings.security');

@@ -28,7 +28,7 @@ class AppServiceProvider extends ServiceProvider
         $logoUrl = null;
         try {
             if (Schema::hasTable('app_settings') && ($path = AppSetting::logoPath())) {
-                $logoUrl = GifUploadController::publicUrl($path);
+                $logoUrl = GifUploadController::temporaryUrl($path);
             }
         } catch (\Throwable) {
             $logoUrl = null;

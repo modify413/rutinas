@@ -197,7 +197,9 @@ class RoutineController extends Controller
 
     private function flatItem($section, $item, int $round, int $reps): array
     {
-        $gifUrl = GifUploadController::publicUrl($item->gif_path ?: $item->gif_url);
+        $gifUrl = $item->gif_path
+            ? GifUploadController::temporaryUrl($item->gif_path)
+            : $item->gif_url;
 
         return [
             'id' => $item->id,
