@@ -117,6 +117,7 @@
           <img class="timer-gif" id="t-gif" alt="" style="display:none">
           <video class="timer-gif" id="t-video" style="display:none" loop muted playsinline preload="auto"></video>
           <iframe class="timer-gif" id="t-yt" style="display:none" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+          <div class="muted" id="t-offline" style="display:none">📡 Video de YouTube: necesita internet</div>
         </div>
         <div id="timer-list" style="display:none"></div>
         <div id="timer-nextbox" style="display:none">
@@ -1049,6 +1050,10 @@ function updateGifPreview(item) {
     const id = ytId(url);
     const prevYt = item.querySelector('[data-gifpreviewyt]');
     if (id && prevYt) {
+      if (!navigator.onLine) {
+        msg.textContent = '📡 Enlace de YouTube válido. Se verá cuando tengas internet.';
+        return;
+      }
       prevYt.src = ytEmbed(id);
       prevYt.style.display = 'block';
       msg.textContent = '✅ Vista previa del video de YouTube.';
@@ -1298,7 +1303,12 @@ function hideTimerMedia() {
   tVideo.removeAttribute('src'); tVideo.style.display = 'none'; tVideo.pause();
   ytCommand(tYt, 'pauseVideo');
   tYt.removeAttribute('src'); tYt.style.display = 'none';
+  document.getElementById('t-offline').style.display = 'none';
 }
+
+// Al volver o perder internet, recargar el medio actual (aviso o video)
+window.addEventListener('online', () => { loadedGifSrc = null; loadedNextSrc = null; if (queue.length && tickId) renderCurrent(); });
+window.addEventListener('offline', () => { loadedGifSrc = null; loadedNextSrc = null; if (queue.length && tickId) renderCurrent(); });
 
 function renderNextBox() {
   if (timerMode() !== 'next3') return;
@@ -1334,7 +1344,7 @@ function renderNextBox() {
   hideAll();
   if (kind === 'youtube') {
     const id = ytId(nxt.gif_url);
-    if (id) { yt.src = ytEmbed(id); yt.style.display = 'block'; }
+    if (id && navigator.onLine) { yt.src = ytEmbed(id); yt.style.display = 'block'; }
     else { loadedNextSrc = null; }
   } else if (kind === 'video') {
     vid.onerror = () => { vid.style.display = 'none'; loadedNextSrc = null; };
@@ -1438,8 +1448,11 @@ function renderCurrent() {
       hideTimerMedia();
       if (kind === 'youtube') {
         const id = ytId(cur.gif_url);
-        if (id) { tYt.src = ytEmbed(id); tYt.style.display = 'block'; }
-        else { loadedGifSrc = null; }
+        if (id && navigator.onLine) { tYt.src = ytEmbed(id); tYt.style.display = 'block'; }
+        else {
+          loadedGifSrc = null;
+          if (id) document.getElementById('t-offline').style.display = 'block';
+        }
       } else if (kind === 'video') {
         tVideo.onerror = () => { tVideo.style.display = 'none'; loadedGifSrc = null; };
         tVideo.src = cur.gif_url;
