@@ -22,6 +22,8 @@ class User extends Authenticatable
         'timer_repeat_mode',
         'beep_volume',
         'timer_style',
+        'timer_list_font_size',
+        'timer_hide_controls',
     ];
 
     protected $hidden = [
@@ -35,6 +37,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'timer_list_font_size' => 'integer',
+            'timer_hide_controls' => 'boolean',
             'security_answer' => 'hashed',
         ];
     }

@@ -2,8 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Models\User;
+use App\Http\Controllers\GifUploadController;
+use App\Models\Routine;
+use Database\Seeders\AdminUserSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class WorkoutTest extends TestCase
@@ -13,7 +16,7 @@ class WorkoutTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->seed(\Database\Seeders\AdminUserSeeder::class);
+        $this->seed(AdminUserSeeder::class);
     }
 
     public function test_admin_seed_and_login(): void
@@ -29,12 +32,32 @@ class WorkoutTest extends TestCase
         $this->get('/')->assertRedirect('/login');
     }
 
+    public function test_multiline_exercise_name_is_preserved_in_timer(): void
+    {
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+        $routine = $this->postJson('/routines', ['name' => 'Varias líneas'])->assertCreated()->json();
+        $name = "Sentadillas\nCon mancuernas\nMovimiento lento";
+
+        $this->putJson('/routines/'.$routine['id'], [
+            'name' => 'Varias líneas',
+            'sections' => [[
+                'title' => 'Sección 1',
+                'items' => [['type' => 'exercise', 'name' => $name, 'duration_seconds' => 30]],
+            ]],
+        ])->assertOk();
+
+        $this->assertDatabaseHas('routine_items', ['name' => $name]);
+        $this->getJson('/routines/'.$routine['id'].'/json')->assertOk()
+            ->assertJsonPath('flat.0.name', $name);
+    }
+
     public function test_full_routine_flow(): void
-    {        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+    {
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
 
         // Crear rutina
         $this->post('/routines', ['name' => 'Cardio'])->assertRedirect();
-        $routineId = \App\Models\Routine::first()->id;
+        $routineId = Routine::first()->id;
 
         // Guardar estructura completa con secciones, ejercicios y descansos en orden
         $payload = [
@@ -90,14 +113,15 @@ class WorkoutTest extends TestCase
     }
 
     public function test_gif_upload_validation_and_gif_path_roundtrip(): void
-    {        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+    {
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
 
         // Sin archivo -> 422 (no toca el bucket)
         $this->postJson('/uploads/gif', [])->assertStatus(422);
 
         // Archivo no imagen -> 422 (no toca el bucket)
         $this->postJson('/uploads/gif', [
-            'gif' => \Illuminate\Http\UploadedFile::fake()->create('doc.pdf', 10, 'application/pdf'),
+            'gif' => UploadedFile::fake()->create('doc.pdf', 10, 'application/pdf'),
         ])->assertStatus(422);
 
         // Invitado no puede subir
@@ -107,7 +131,7 @@ class WorkoutTest extends TestCase
         // gif_path se guarda y el timer lo resuelve (sin bucket devuelve null, no rompe)
         $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
         $this->post('/routines', ['name' => 'ConGif']);
-        $routineId = \App\Models\Routine::where('name', 'ConGif')->first()->id;
+        $routineId = Routine::where('name', 'ConGif')->first()->id;
         $this->putJson("/routines/{$routineId}", [
             'name' => 'ConGif',
             'sections' => [[
@@ -128,7 +152,7 @@ class WorkoutTest extends TestCase
     {
         $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
         $this->post('/routines', ['name' => 'Reps']);
-        $routineId = \App\Models\Routine::where('name', 'Reps')->first()->id;
+        $routineId = Routine::where('name', 'Reps')->first()->id;
         $this->putJson("/routines/{$routineId}", [
             'name' => 'Reps',
             'sections' => [[
@@ -191,7 +215,7 @@ class WorkoutTest extends TestCase
     {
         $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
         $this->post('/routines', ['name' => 'Vueltas']);
-        $routineId = \App\Models\Routine::where('name', 'Vueltas')->first()->id;
+        $routineId = Routine::where('name', 'Vueltas')->first()->id;
         $this->putJson("/routines/{$routineId}", [
             'name' => 'Vueltas',
             'sections' => [
@@ -230,30 +254,30 @@ class WorkoutTest extends TestCase
     public function test_video_upload_rules_and_kind(): void
     {
         // Detección de tipo por extensión
-        $this->assertSame('video', \App\Http\Controllers\GifUploadController::mediaKind('clip.mp4'));
-        $this->assertSame('video', \App\Http\Controllers\GifUploadController::mediaKind('https://x/y.webm?t=1'));
-        $this->assertSame('image', \App\Http\Controllers\GifUploadController::mediaKind('anim.gif'));
-        $this->assertSame('image', \App\Http\Controllers\GifUploadController::mediaKind(null));
-        $this->assertSame('youtube', \App\Http\Controllers\GifUploadController::mediaKind('https://www.youtube.com/watch?v=dQw4w9WgXcQ'));
-        $this->assertSame('youtube', \App\Http\Controllers\GifUploadController::mediaKind('https://youtu.be/dQw4w9WgXcQ'));
-        $this->assertSame('youtube', \App\Http\Controllers\GifUploadController::mediaKind('https://www.youtube.com/shorts/dQw4w9WgXcQ'));
+        $this->assertSame('video', GifUploadController::mediaKind('clip.mp4'));
+        $this->assertSame('video', GifUploadController::mediaKind('https://x/y.webm?t=1'));
+        $this->assertSame('image', GifUploadController::mediaKind('anim.gif'));
+        $this->assertSame('image', GifUploadController::mediaKind(null));
+        $this->assertSame('youtube', GifUploadController::mediaKind('https://www.youtube.com/watch?v=dQw4w9WgXcQ'));
+        $this->assertSame('youtube', GifUploadController::mediaKind('https://youtu.be/dQw4w9WgXcQ'));
+        $this->assertSame('youtube', GifUploadController::mediaKind('https://www.youtube.com/shorts/dQw4w9WgXcQ'));
 
         $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
 
         // Archivo demasiado grande -> 422 sin tocar el bucket
         $res = $this->postJson('/uploads/gif', [
-            'gif' => \Illuminate\Http\UploadedFile::fake()->create('big.mp4', 26000, 'video/mp4'),
+            'gif' => UploadedFile::fake()->create('big.mp4', 26000, 'video/mp4'),
         ])->assertStatus(422);
         $this->assertStringContainsString('25 MB', $res->json('message', json_encode($res->json())));
 
         // Tipo no permitido -> 422
         $this->postJson('/uploads/gif', [
-            'gif' => \Illuminate\Http\UploadedFile::fake()->create('x.txt', 10, 'text/plain'),
+            'gif' => UploadedFile::fake()->create('x.txt', 10, 'text/plain'),
         ])->assertStatus(422);
 
         // El timer informa el kind de cada elemento
         $this->post('/routines', ['name' => 'Mix']);
-        $routineId = \App\Models\Routine::where('name', 'Mix')->first()->id;
+        $routineId = Routine::where('name', 'Mix')->first()->id;
         $this->putJson("/routines/{$routineId}", [
             'name' => 'Mix',
             'sections' => [[
@@ -276,7 +300,7 @@ class WorkoutTest extends TestCase
 
         // Rutina del profesor
         $this->post('/routines', ['name' => 'Profe']);
-        $routineId = \App\Models\Routine::where('name', 'Profe')->first()->id;
+        $routineId = Routine::where('name', 'Profe')->first()->id;
         $this->putJson("/routines/{$routineId}", [
             'name' => 'Profe',
             'sections' => [[
@@ -356,7 +380,7 @@ class WorkoutTest extends TestCase
     {
         $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
         $this->post('/routines', ['name' => 'Modos']);
-        $routineId = \App\Models\Routine::where('name', 'Modos')->first()->id;
+        $routineId = Routine::where('name', 'Modos')->first()->id;
         $payload = [
             'name' => 'Modos',
             'sections' => [
@@ -392,7 +416,8 @@ class WorkoutTest extends TestCase
     }
 
     public function test_beep_volume_setting(): void
-    {        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
+    {
+        $this->post('/login', ['username' => 'admin', 'password' => 'admin123']);
 
         // Valor por defecto
         $this->assertSame(100, auth()->user()->beep_volume);
@@ -465,7 +490,7 @@ class WorkoutTest extends TestCase
         // Sin archivo y con tipo inválido -> 422 sin tocar nada
         $this->postJson('/settings/logo', [])->assertStatus(422);
         $this->postJson('/settings/logo', [
-            'logo' => \Illuminate\Http\UploadedFile::fake()->create('x.txt', 10, 'text/plain'),
+            'logo' => UploadedFile::fake()->create('x.txt', 10, 'text/plain'),
         ])->assertStatus(422);
 
         // Sin logo no se rompe nada: favicon por defecto y sin imágenes

@@ -23,7 +23,9 @@ a{color:inherit}
 .btn:disabled{opacity:.55;cursor:wait}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
 input,select,textarea{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #333;background:#000;color:var(--text)}
-input:focus,select:focus{outline:1px solid var(--accent);border-color:var(--accent)}
+input:focus,select:focus,textarea:focus{outline:1px solid var(--accent);border-color:var(--accent)}
+textarea[data-name],#lib-name{resize:vertical;font:inherit}
+.timer-name,.timer-next,.tlist-item > span:first-child,.lib-btn{white-space:pre-wrap;overflow-wrap:anywhere}
 label{font-size:.85rem;color:var(--muted);display:block;margin:8px 0 4px}
 .alert{background:#1a0505;border:1px solid var(--accent);padding:10px 12px;border-radius:10px;margin:10px 0}
 .error{background:#1a0505;border:1px solid var(--accent);padding:10px 12px;border-radius:10px;margin:10px 0}
@@ -79,10 +81,10 @@ iframe.timer-gif{height:min(30vh,260px);border:0}
 .timer-rest .timer-time{color:#fff}.timer-exercise .timer-time{color:var(--accent)}
 /* ---- Modo lista del timer: la lista ocupa el hueco izquierdo, el bloque se mueve a la derecha ---- */
 #timer-list{background:#000;border:1px solid var(--line);border-radius:12px;padding:10px;max-height:46vh;overflow-y:auto;text-align:left}
-.tlist-sec{font-weight:800;margin:10px 0 4px;text-transform:uppercase;font-size:.95rem}
+.tlist-sec{font-weight:800;margin:10px 0 4px;text-transform:uppercase;font-size:var(--timer-list-font-size,16px)}
 .tlist-sec:first-child{margin-top:0}
 .tlist-sec.active{color:var(--accent)}
-.tlist-item{display:flex;justify-content:space-between;gap:8px;padding:6px 8px;border-radius:8px;font-size:.9rem}
+.tlist-item{display:flex;justify-content:space-between;gap:8px;padding:6px 8px;border-radius:8px;font-size:var(--timer-list-font-size,16px)}
 .tlist-item.rest{color:var(--muted)}
 .tlist-item.done{opacity:.4}
 .tlist-item.current{background:var(--accent);color:#fff;font-weight:800}
@@ -190,6 +192,10 @@ body.nav-collapsed .toast-wrap{left:50%}
 #timer-fs.pseudo-fs .timer-gif{max-width:min(480px,80vw);max-height:34vh}
 #timer-fs.pseudo-fs .no-fs{display:none !important}
 #timer-fs.pseudo-fs .only-fs{display:inline-block !important}
+#timer-mobile-exit{display:none}
+#timer-fs.pseudo-fs.hide-bottom-controls #timer-mobile-exit{display:block;position:fixed;top:12px;right:16px;z-index:10;background:#141414}
+#timer-fs:is(:fullscreen,.pseudo-fs).hide-bottom-controls #timer-bottom,
+#timer-fs:is(:fullscreen,.pseudo-fs).hide-bottom-controls #timer-playback-controls{display:none}
 </style>
 @yield('head')
 </head>

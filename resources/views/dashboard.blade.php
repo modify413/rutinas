@@ -107,9 +107,10 @@
       <p class="muted">Selecciona una rutina y pulsa Iniciar.</p>
     </div>
 
-    <div id="timer-fs">
+    <div id="timer-fs" class="{{ $user->timer_hide_controls ? 'hide-bottom-controls' : '' }}">
     <div id="timer-run" style="display:none" class="timer-exercise">
-      <div class="timer-stage" id="timer-stage">
+      <button class="btn ghost" id="timer-mobile-exit" type="button">Salir de pantalla completa</button>
+      <div class="timer-stage" id="timer-stage" style="--timer-list-font-size:{{ (int) ($user->timer_list_font_size ?? 16) }}px">
         <div class="timer-section" id="t-section"></div>
         <div id="timer-box">
           <div class="timer-time" id="t-time">00:00</div>
@@ -133,7 +134,7 @@
           <div class="muted" id="t-count"></div>
         </div>
       </div>
-      <div class="timer-controls">
+      <div class="timer-controls" id="timer-playback-controls">
         <button class="btn warn" id="timer-pause" type="button">⏸ Pausar</button>
         <button class="btn secondary" id="timer-prev" type="button">⏮ Anterior</button>
         <button class="btn secondary" id="timer-nextbtn" type="button">⏭ Siguiente</button>
@@ -162,7 +163,7 @@
     <div class="row">
       <div style="flex:2;min-width:150px">
         <label for="lib-name">Nombre</label>
-        <input id="lib-name" maxlength="255" placeholder="Ej: Flexiones">
+        <textarea id="lib-name" rows="2" maxlength="255" placeholder="Ej: Flexiones"></textarea>
       </div>
       <div style="flex:1;min-width:100px">
         <label for="lib-dur">Tiempo (s o m:ss)</label>
@@ -356,6 +357,31 @@
         <button class="btn" type="submit">Guardar estilo</button>
       </form>
     </div>
+    <div class="card">
+      <h3 style="margin-top:0">Controles en pantalla completa</h3>
+      <p class="muted" style="margin-top:0">Oculta el próximo ejercicio, la barra de progreso, el contador y los botones inferiores solo en pantalla completa. Para salir, presioná Esc; en móvil queda un botón para salir.</p>
+      <form method="POST" action="{{ route('settings.fullscreen_controls') }}">
+        @csrf @method('PUT')
+        <input type="hidden" name="timer_hide_controls" value="0">
+        <label style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
+          <input type="checkbox" name="timer_hide_controls" value="1" {{ old('timer_hide_controls', $user->timer_hide_controls) ? 'checked' : '' }} style="width:auto">
+          Ocultar la franja inferior en pantalla completa
+        </label>
+        <button class="btn" type="submit">Guardar controles</button>
+      </form>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Tamaño de letra de la lista</h3>
+      <p class="muted" style="margin-top:0">Se aplica a la lista de ejercicios del timer, también en pantalla completa.</p>
+      <form method="POST" action="{{ route('settings.list_font_size') }}">
+        @csrf @method('PUT')
+        <label for="timer_list_font_size">Tamaño: <strong id="list-font-label">{{ (int) old('timer_list_font_size', $user->timer_list_font_size ?? 16) }} px</strong></label>
+        <input id="timer_list_font_size" name="timer_list_font_size" type="range" min="12" max="40" step="1" value="{{ (int) old('timer_list_font_size', $user->timer_list_font_size ?? 16) }}" oninput="document.getElementById('list-font-label').textContent = this.value + ' px'; document.getElementById('timer-stage').style.setProperty('--timer-list-font-size', this.value + 'px'); document.getElementById('list-font-preview').style.fontSize = this.value + 'px'">
+        <div id="list-font-preview" style="font-size:{{ (int) old('timer_list_font_size', $user->timer_list_font_size ?? 16) }}px;margin:12px 0;white-space:pre-wrap">Sentadillas
+Con mancuernas · 0:30</div>
+        <button class="btn" type="submit">Guardar tamaño de letra</button>
+      </form>
+    </div>
     @if($user->isAdmin())
     <div class="card">
       <h3 style="margin-top:0">🖼️ Logo</h3>
@@ -522,7 +548,7 @@ function itemHtml(item, sIdx, iIdx) {
     <div><span class="badge ${isRest ? 'rest' : 'exercise'}">${isRest ? 'DESCANSO' : 'EJERCICIO'}</span></div>
     <div class="item-row" style="margin-top:8px">
       <div><label>Nombre${isRest ? ' (ej: Descanso, Hidratación)' : ''}</label>
-        <input data-name value="${esc(item.name || '')}" placeholder="${isRest ? 'Descanso' : 'Ej: Flexiones'}" maxlength="255"></div>
+        <textarea data-name rows="2" placeholder="${isRest ? 'Descanso' : 'Ej: Flexiones'}" maxlength="255">${esc(item.name || '')}</textarea></div>
       <div><label>Tiempo (s o m:ss)</label>
         <input data-dur value="${esc(item.duration_display ?? item.duration_seconds ?? '30')}" placeholder="30 o 1:30"></div>
       <div><label>Tipo</label>
@@ -1016,7 +1042,7 @@ function ytId(url) {
   return m ? m[1] : null;
 }
 function ytEmbed(id, autoplay = true) {
-  return `https://www.youtube-nocookie.com/embed/${id}?enablejsapi=1&rel=0&loop=1&playlist=${id}` + (autoplay ? '&autoplay=1&mute=1' : '');
+  return `https://www.youtube-nocookie.com/embed/${id}?enablejsapi=1&controls=0&disablekb=1&fs=0&playsinline=1&rel=0&loop=1&playlist=${id}` + (autoplay ? '&autoplay=1&mute=1' : '');
 }
 function ytCommand(frame, func) {
   try {
@@ -1317,12 +1343,14 @@ function renderNextBox() {
   if (!nxt) {
     loadedNextSrc = null;
     nameEl.textContent = '—';
+    nameEl.style.display = '';
     hideAll();
     empty.style.display = 'block';
     return;
   }
   empty.style.display = 'none';
   nameEl.textContent = nxt.name;
+  nameEl.style.display = /[\r\n]/.test(nxt.name || '') ? 'none' : '';
   if (!nxt.gif_url) {
     loadedNextSrc = null;
     hideAll();
@@ -1425,6 +1453,7 @@ function renderCurrent() {
   timerRun.classList.toggle('timer-exercise', !isRest);
   tSection.textContent = cur.section || '';
   tName.textContent = cur.name;
+  tName.style.display = /[\r\n]/.test(cur.name || '') ? 'none' : '';
   tTime.textContent = fmtClock(remaining);
   const nxt = queue[idx + 1];
   tNext.textContent = nxt ? `Próximo: ${nxt.name} (${fmt(nxt.duration_seconds)})` : 'Último elemento de la rutina';
@@ -1618,7 +1647,7 @@ function exitTimerFs() {
   }
 }
 if (timerFsBtn) timerFsBtn.addEventListener('click', () => { (isFs() || isPseudoFs()) ? exitTimerFs() : enterTimerFs(); });
-['timer-fs-exit', 'timer-fs-exit2'].forEach(id => {
+['timer-fs-exit', 'timer-fs-exit2', 'timer-mobile-exit'].forEach(id => {
   const b = document.getElementById(id);
   if (b) b.addEventListener('click', exitTimerFs);
 });

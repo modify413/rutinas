@@ -97,7 +97,9 @@ class MediaStorageTest extends TestCase
 
     public function test_logo_replacement_in_local_mode_removes_previous_local_logo(): void
     {
-        Storage::fake('local');
+        $disk = Storage::fake('local');
+        config(['filesystems.disks.local.root' => $disk->path('')]);
+        Storage::forgetDisk('local');
         config(['media.disk' => 'local']);
         Storage::disk('local')->put('local/logos/old.svg', '<svg/>');
         AppSetting::setLogo('local/logos/old.svg');
@@ -111,5 +113,11 @@ class MediaStorageTest extends TestCase
         $this->assertStringStartsWith('local/logos/', AppSetting::logoPath());
         Storage::disk('local')->assertExists(AppSetting::logoPath());
         Storage::disk('local')->assertMissing('local/logos/old.svg');
+
+        $url = GifUploadController::temporaryUrl(AppSetting::logoPath());
+        $this->get('/')->assertOk()->assertSee($url);
+        $this->get($url)->assertOk();
+        $this->post('/logout');
+        $this->get('/login')->assertOk()->assertSee($url);
     }
 }

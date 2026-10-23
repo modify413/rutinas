@@ -7,6 +7,7 @@ use App\Models\AppSetting;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\View\View as ViewInstance;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,16 +24,17 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Logo global (login, barra superior y favicon). Si no hay o falla,
-        // queda null y se usan los valores por defecto.
-        $logoUrl = null;
-        try {
-            if (Schema::hasTable('app_settings') && ($path = AppSetting::logoPath())) {
-                $logoUrl = GifUploadController::temporaryUrl($path);
-            }
-        } catch (\Throwable) {
+        View::composer(['dashboard', 'layouts.app'], function (ViewInstance $view): void {
             $logoUrl = null;
-        }
-        View::share('logoUrl', $logoUrl);
+            try {
+                if (Schema::hasTable('app_settings') && ($path = AppSetting::logoPath())) {
+                    $logoUrl = GifUploadController::temporaryUrl($path);
+                }
+            } catch (\Throwable) {
+                $logoUrl = null;
+            }
+
+            $view->with('logoUrl', $logoUrl);
+        });
     }
 }

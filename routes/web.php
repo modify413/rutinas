@@ -32,6 +32,8 @@ Route::middleware('auth')->group(function () {
     Route::put('/settings/timer-mode', [SettingsController::class, 'updateTimerMode'])->name('settings.timer_mode');
     Route::put('/settings/volume', [SettingsController::class, 'updateVolume'])->name('settings.volume');
     Route::put('/settings/style', [SettingsController::class, 'updateStyle'])->name('settings.style');
+    Route::put('/settings/list-font-size', [SettingsController::class, 'updateListFontSize'])->name('settings.list_font_size');
+    Route::put('/settings/fullscreen-controls', [SettingsController::class, 'updateFullscreenControls'])->name('settings.fullscreen_controls');
 
     // Solo el profesor administra rutinas, biblioteca y alumnos
     Route::middleware(EnsureAdmin::class)->group(function () {

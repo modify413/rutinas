@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AppSetting;
 use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -97,6 +98,28 @@ class SettingsController extends Controller
         $request->user()->update(['timer_style' => $data['timer_style']]);
 
         return back()->with('status', 'Estilo del timer actualizado.');
+    }
+
+    public function updateListFontSize(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'timer_list_font_size' => ['required', 'integer', 'min:12', 'max:40'],
+        ], [], ['timer_list_font_size' => 'tamaño de letra de la lista']);
+
+        $request->user()->update(['timer_list_font_size' => (int) $data['timer_list_font_size']]);
+
+        return back()->with('status', 'Tamaño de letra de la lista actualizado.');
+    }
+
+    public function updateFullscreenControls(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'timer_hide_controls' => ['required', 'boolean'],
+        ]);
+
+        $request->user()->update(['timer_hide_controls' => (bool) $data['timer_hide_controls']]);
+
+        return back()->with('status', 'Controles de pantalla completa actualizados.');
     }
 
     public function updateLogo(Request $request)
