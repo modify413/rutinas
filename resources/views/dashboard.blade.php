@@ -544,7 +544,7 @@ function itemHtml(item, sIdx, iIdx) {
       <div><img data-gifpreview alt="" style="max-width:180px;max-height:140px;display:none;border-radius:8px;margin-top:6px;background:#000"></div>
       <div><video data-gifpreviewv style="max-width:180px;max-height:140px;display:none;border-radius:8px;margin-top:6px;background:#000" loop muted playsinline></video></div>
       <div><iframe data-gifpreviewyt style="width:180px;height:120px;display:none;border-radius:8px;margin-top:6px;background:#000;border:0" allow="autoplay; encrypted-media" allowfullscreen></iframe></div>
-      <div class="muted" data-gifmsg style="margin-top:4px">${item.gif_path ? '📁 Archivo subido al bucket ✓' : ''}</div>
+      <div class="muted" data-gifmsg style="margin-top:4px">${item.gif_path ? '📁 Archivo guardado ✓' : ''}</div>
       <div class="muted" style="font-size:.75rem">Acepta GIF/imagen por enlace directo, video corto MP4 o enlace de YouTube. En Giphy usa clic derecho → "Copiar dirección de imagen".</div>
     </div>
     <div class="item-actions">
@@ -1042,7 +1042,7 @@ function updateGifPreview(item) {
   const savedPath = item.querySelector('[data-gifpath]').value;
   hidePreviews(item);
   if (!url) {
-    msg.textContent = savedPath ? '📁 Archivo subido al bucket ✓' : '';
+    msg.textContent = savedPath ? '📁 Archivo guardado ✓' : '';
     return;
   }
   if (mediaKindOf(url) === 'youtube') {

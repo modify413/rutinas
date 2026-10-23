@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Aws\S3\S3Client;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class GifUploadController extends Controller
@@ -19,6 +21,8 @@ class GifUploadController extends Controller
             'region' => $disk['region'],
             'endpoint' => $disk['endpoint'],
             'use_path_style_endpoint' => true,
+            'http' => ['connect_timeout' => 2, 'timeout' => 5],
+            'retries' => 0,
             'credentials' => [
                 'key' => $disk['key'],
                 'secret' => $disk['secret'],
@@ -29,6 +33,55 @@ class GifUploadController extends Controller
     public static function bucket(): string
     {
         return config('filesystems.disks.neon.bucket', 'gifs');
+    }
+
+    public static function bucketConfigured(): bool
+    {
+        if (config('media.disk') === 'local') {
+            return false;
+        }
+
+        foreach (['key', 'secret', 'region', 'bucket', 'endpoint'] as $field) {
+            if (! filled(config('filesystems.disks.neon.'.$field))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public static function storeMedia(UploadedFile $file, string $key): string
+    {
+        if (static::bucketConfigured()) {
+            try {
+                static::client()->putObject([
+                    'Bucket' => static::bucket(),
+                    'Key' => $key,
+                    'SourceFile' => $file->getRealPath(),
+                    'ContentType' => $file->getMimeType(),
+                ]);
+
+                return $key;
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        $path = 'local/'.$key;
+        if (! Storage::disk('local')->putFileAs(dirname($path), $file, basename($path))) {
+            throw new \RuntimeException('No se pudo guardar el archivo localmente.');
+        }
+
+        return $path;
+    }
+
+    public static function deleteMedia(string $path): void
+    {
+        if (str_starts_with($path, 'local/')) {
+            Storage::disk('local')->delete($path);
+        } elseif (static::bucketConfigured()) {
+            static::client()->deleteObject(['Bucket' => static::bucket(), 'Key' => $path]);
+        }
     }
 
     public static function mediaKind(?string $pathOrUrl): string
@@ -63,19 +116,14 @@ class GifUploadController extends Controller
         ], ['gif' => 'archivo']);
 
         $file = $request->file('gif');
-        $key = 'media-'.Str::uuid().'.'.$file->getClientOriginalExtension();
+        $key = 'media-'.Str::uuid().'.'.$file->extension();
 
         try {
-            static::client()->putObject([
-                'Bucket' => static::bucket(),
-                'Key' => $key,
-                'Body' => fopen($file->getRealPath(), 'rb'),
-                'ContentType' => $file->getMimeType(),
-            ]);
+            $key = static::storeMedia($file, $key);
         } catch (\Throwable $e) {
             report($e);
 
-            return response()->json(['message' => 'No se pudo subir el archivo al bucket.'], 500);
+            return response()->json(['message' => 'No se pudo guardar el archivo.'], 500);
         }
 
         return response()->json([
@@ -91,6 +139,12 @@ class GifUploadController extends Controller
             return null;
         }
         try {
+            if (str_starts_with($path, 'local/')) {
+                return Storage::disk('local')->temporaryUrl($path, now()->addHours(3));
+            }
+            if (! static::bucketConfigured()) {
+                return null;
+            }
             $cmd = static::client()->getCommand('GetObject', [
                 'Bucket' => static::bucket(),
                 'Key' => $path,

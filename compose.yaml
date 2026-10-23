@@ -1,0 +1,30 @@
+services:
+  app:
+    build: .
+    image: rutinas-app:local
+    restart: unless-stopped
+    ports:
+      - "${APP_BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-8000}:8000"
+    environment:
+      APP_NAME: Rutinas
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_URL: ${APP_URL:-http://localhost:8000}
+      APP_KEY: ${APP_KEY:-}
+      APP_DATA_DIR: /data
+      MEDIA_LOCAL_ROOT: /data/media
+      MEDIA_DISK: ${MEDIA_DISK:-auto}
+      DB_CONNECTION: sqlite
+      DB_DATABASE: /data/database.sqlite
+      DB_URL: ""
+      SESSION_DRIVER: database
+      CACHE_STORE: database
+      QUEUE_CONNECTION: database
+      LOG_CHANNEL: stderr
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-us-east-2}
+      AWS_ENDPOINT_URL_S3: ${AWS_ENDPOINT_URL_S3:-}
+      GIFS_BUCKET: ${GIFS_BUCKET:-gifs}
+    volumes:
+      - ./data:/data

@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AppSetting;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class SettingsController extends Controller
@@ -51,7 +54,7 @@ class SettingsController extends Controller
         $request->user()->update([
             'security_question' => $data['security_question'],
             // Se normaliza antes de guardar: el cast 'hashed' la cifra.
-            'security_answer' => \App\Models\User::normalizeAnswer($data['security_answer']),
+            'security_answer' => User::normalizeAnswer($data['security_answer']),
         ]);
 
         return back()->with('status', 'Pregunta de seguridad guardada.');
@@ -84,7 +87,8 @@ class SettingsController extends Controller
     }
 
     public function updateStyle(Request $request)
-    {        $data = $request->validate([
+    {
+        $data = $request->validate([
             'timer_style' => ['required', 'string', 'in:simple,lista,simple_lista_next'],
         ], [], [
             'timer_style' => 'estilo del timer',
@@ -109,33 +113,25 @@ class SettingsController extends Controller
         ]);
 
         $file = $request->file('logo');
-        $key = 'logos/logo-'.\Illuminate\Support\Str::uuid().'.'.$file->getClientOriginalExtension();
+        $key = 'logos/logo-'.Str::uuid().'.'.$file->extension();
 
         try {
-            \App\Http\Controllers\GifUploadController::client()->putObject([
-                'Bucket' => \App\Http\Controllers\GifUploadController::bucket(),
-                'Key' => $key,
-                'Body' => fopen($file->getRealPath(), 'rb'),
-                'ContentType' => $file->getMimeType(),
-            ]);
+            $key = GifUploadController::storeMedia($file, $key);
         } catch (\Throwable $e) {
             report($e);
 
-            return back()->withErrors(['logo' => 'No se pudo subir el logo al bucket.']);
+            return back()->withErrors(['logo' => 'No se pudo guardar el logo.']);
         }
 
         // Borrar el anterior para no acumular archivos (sin romper si falla)
         try {
-            if (($old = \App\Models\AppSetting::logoPath()) && $old !== $key) {
-                \App\Http\Controllers\GifUploadController::client()->deleteObject([
-                    'Bucket' => \App\Http\Controllers\GifUploadController::bucket(),
-                    'Key' => $old,
-                ]);
+            if (($old = AppSetting::logoPath()) && $old !== $key) {
+                GifUploadController::deleteMedia($old);
             }
         } catch (\Throwable) {
         }
 
-        \App\Models\AppSetting::setLogo($key);
+        AppSetting::setLogo($key);
 
         return back()->with('status', 'Logo actualizado.');
     }

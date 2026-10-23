@@ -7,6 +7,56 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Uso local sin Internet y traslado a un servidor
+
+La aplicación usa `MEDIA_DISK=auto`: si hay credenciales completas del bucket,
+intenta guardar allí; si faltan o la subida falla, guarda en disco local.
+YouTube y los enlaces a GIFs o videos externos requieren Internet.
+Los archivos guardados localmente siguen siendo locales aunque después se conecte un bucket.
+
+Para preparar la imagen en un equipo con Internet:
+
+```sh
+docker compose build
+docker save -o rutinas-app.tar rutinas-app:local
+```
+
+En la PC del cliente, con Docker instalado, copiar `rutinas-app.tar` y `compose.yaml`
+a una carpeta y ejecutar:
+
+```sh
+docker load -i rutinas-app.tar
+docker compose up -d --no-build --pull never
+```
+
+Abrir `http://localhost:8000`. El primer acceso es `admin` / `admin123`;
+cambiar la contraseña desde la aplicación. Los reinicios conservan los cambios del administrador.
+La imagen ya incluye las dependencias: el arranque no descarga paquetes.
+
+Compose mantiene fuera del contenedor la carpeta `data/`, con:
+
+- `database.sqlite`: usuarios, rutinas, biblioteca y configuración.
+- `media/`: imágenes, videos y logos subidos sin bucket.
+- `app.key`: clave estable de la aplicación.
+
+Detener la aplicación con `docker compose stop` antes de copiar o respaldar `data/`.
+Para trasladarla a un servidor, copiar la carpeta completa junto con `compose.yaml`
+y la imagen; iniciarla con el mismo comando. Configurar `APP_URL` con el dominio
+del servidor en un `.env` al lado de Compose. Si se necesita acceso directo desde
+otros equipos, configurar `APP_BIND_ADDRESS=0.0.0.0`; por defecto escucha solo en la PC.
+Si cambia el puerto, configurar también `APP_URL` con ese puerto.
+
+Se puede agregar la configuración del bucket en ese `.env` (`AWS_ACCESS_KEY_ID`,
+`AWS_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL_S3`, `AWS_REGION`, `GIFS_BUCKET`).
+Las nuevas cargas intentarán usarlo; las anteriores seguirán leyéndose desde `data/media`.
+Este traslado conserva SQLite: pasar a PostgreSQL requiere migrar los datos por separado.
+No eliminar `data/`: recrear el contenedor no la borra.
+
+Para una instalación existente, copiar los archivos de `storage/app/private/` a
+`data/media/`, conservar su base SQLite como `data/database.sqlite` y conservar
+su `APP_KEY`. Los alojamientos con disco efímero requieren un volumen persistente
+montado en `/data` para utilizar esta alternativa local.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

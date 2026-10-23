@@ -3,6 +3,9 @@ vendor
 node_modules
 .env
 .env.backup
+data/
+storage/app/private/*
+storage/app/public/*
 database/database.sqlite
 database/*.sqlite
 storage/logs/*

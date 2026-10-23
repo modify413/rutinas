@@ -10,7 +10,11 @@ class AdminUserSeeder extends Seeder
 {
     public function run(): void
     {
-        User::updateOrCreate(
+        if (User::where('role', 'admin')->exists()) {
+            return;
+        }
+
+        User::firstOrCreate(
             ['username' => 'admin'],
             [
                 'name' => 'admin',
