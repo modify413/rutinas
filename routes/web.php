@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DatabaseBackupController;
 use App\Http\Controllers\GifUploadController;
 use App\Http\Controllers\LibraryExerciseController;
 use App\Http\Controllers\PasswordRecoveryController;
@@ -37,6 +38,8 @@ Route::middleware('auth')->group(function () {
 
     // Solo el profesor administra rutinas, biblioteca y alumnos
     Route::middleware(EnsureAdmin::class)->group(function () {
+        Route::get('/settings/database/export', [DatabaseBackupController::class, 'export'])->name('settings.database_export');
+        Route::post('/settings/database/import', [DatabaseBackupController::class, 'import'])->name('settings.database_import');
         Route::post('/routines', [RoutineController::class, 'store'])->name('routines.store');
         Route::put('/routines/{routine}', [RoutineController::class, 'update'])->name('routines.update');
         Route::delete('/routines/{routine}', [RoutineController::class, 'destroy'])->name('routines.destroy');

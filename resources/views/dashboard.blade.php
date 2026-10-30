@@ -384,6 +384,21 @@ Con mancuernas · 0:30</div>
     </div>
     @if($user->isAdmin())
     <div class="card">
+      <h3 style="margin-top:0">Respaldo de la base de datos</h3>
+      <p class="muted">Exporta todos los usuarios, rutinas, biblioteca y configuración como texto JSON. Incluye contraseñas cifradas: guardá el archivo en un lugar privado. No incluye archivos multimedia, sesiones ni caché; conservá también la carpeta de multimedia o el bucket.</p>
+      <a class="btn secondary" href="{{ route('settings.database_export') }}">Exportar base como texto</a>
+      <form method="POST" action="{{ route('settings.database_import') }}" enctype="multipart/form-data" style="margin-top:18px">
+        @csrf
+        <label for="database-backup">Importar respaldo JSON (máx. 25 MB)</label>
+        <input id="database-backup" name="backup" type="file" accept=".json,.txt,application/json,text/plain" required>
+        <label style="display:flex;gap:10px;align-items:center;margin:12px 0">
+          <input type="checkbox" name="replace_data" value="1" required style="width:auto">
+          Reemplazar todos los datos actuales y cerrar las sesiones. Ya guardé un respaldo.
+        </label>
+        <button class="btn danger" type="submit">Importar y reemplazar base</button>
+      </form>
+    </div>
+    <div class="card">
       <h3 style="margin-top:0">🖼️ Logo</h3>
       <p class="muted" style="margin-top:0">Se muestra en el inicio de sesión, junto al menú y en la pestaña del navegador.</p>
       @if(!empty($logoUrl))
